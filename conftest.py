@@ -1,0 +1,6 @@
+# Root conftest so pytest puts the repository root on sys.path (`import app` works).
+import os
+
+# Set before app.config is imported, so tests never need a .env file.
+os.environ.setdefault("DATABASE_URL", "postgresql+psycopg://newbid:newbid@localhost:5432/newbid_test")
+os.environ.setdefault("JWT_SECRET", "test-secret")
