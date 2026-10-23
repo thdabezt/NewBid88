@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, CheckConstraint, DateTime, MetaData, func
+from sqlalchemy import BigInteger, CheckConstraint, DateTime, Identity, Index, MetaData, String, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 # Fixed constraint names so Alembic migrations stay stable.
@@ -31,4 +31,22 @@ class Wallet(Base):
     held: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class WalletTransaction(Base):
+    __tablename__ = "wallet_transactions"
+    __table_args__ = (Index("ix_wallet_transactions_user_id_id", "user_id", "id"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    type: Mapped[str] = mapped_column(String(30), nullable=False)
+    balance_delta: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    held_delta: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    balance_after: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    held_after: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    auction_id: Mapped[int | None] = mapped_column(BigInteger)
+    bid_id: Mapped[int | None] = mapped_column(BigInteger)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
     )

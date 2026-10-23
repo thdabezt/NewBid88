@@ -1,7 +1,11 @@
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.domain.errors import NotFoundError
-from app.infra.db.models import Wallet
+from app.domain.errors import DomainError, NotFoundError
+from app.infra.db.models import Wallet, WalletTransaction
+
+MIN_TOP_UP = 10_000
+MAX_TOP_UP = 50_000_000
 
 
 def get_wallet(db: Session, user_id: int) -> Wallet:
@@ -17,3 +21,31 @@ def wallet_response(wallet: Wallet) -> dict[str, int]:
         "held": wallet.held,
         "available": wallet.balance - wallet.held,
     }
+
+
+def top_up(db: Session, user_id: int, amount: int) -> WalletTransaction:
+    if not MIN_TOP_UP <= amount <= MAX_TOP_UP:
+        raise DomainError(
+            "INVALID_AMOUNT",
+            "Top-up amount must be between 10000 and 50000000",
+        )
+
+    wallet = db.execute(
+        select(Wallet).where(Wallet.user_id == user_id).with_for_update()
+    ).scalar_one_or_none()
+    if wallet is None:
+        raise NotFoundError("WALLET_NOT_FOUND", "Wallet not found")
+
+    wallet.balance += amount
+    transaction = WalletTransaction(
+        user_id=user_id,
+        type="TOPUP",
+        balance_delta=amount,
+        held_delta=0,
+        balance_after=wallet.balance,
+        held_after=wallet.held,
+    )
+    db.add(transaction)
+    db.commit()
+    db.refresh(transaction)
+    return transaction
