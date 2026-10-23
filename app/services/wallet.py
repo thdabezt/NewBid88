@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.domain.errors import DomainError, NotFoundError
@@ -49,3 +49,25 @@ def top_up(db: Session, user_id: int, amount: int) -> WalletTransaction:
     db.commit()
     db.refresh(transaction)
     return transaction
+
+
+def list_transactions(
+    db: Session,
+    user_id: int,
+    transaction_type: str | None,
+    page: int,
+    size: int,
+) -> tuple[list[WalletTransaction], int]:
+    filters = [WalletTransaction.user_id == user_id]
+    if transaction_type is not None:
+        filters.append(WalletTransaction.type == transaction_type)
+
+    total = db.scalar(select(func.count()).select_from(WalletTransaction).where(*filters)) or 0
+    items = db.scalars(
+        select(WalletTransaction)
+        .where(*filters)
+        .order_by(WalletTransaction.id.desc())
+        .offset((page - 1) * size)
+        .limit(size)
+    ).all()
+    return items, total
