@@ -46,7 +46,6 @@ def test_outbid_releases_only_this_auctions_hold(bids_db):
     ("upcoming", "AUCTION_NOT_STARTED"), ("seller", "SELLER_CANNOT_BID"),
     ("leader", "ALREADY_HIGHEST_BIDDER"),
 ])
-
 def test_bid_rejects_invalid_auction_or_bidder(bids_db, bids_now, case, code):
     auction = bids_db.auctions[1]
     user_id = 2
@@ -76,7 +75,6 @@ def test_bid_rejects_invalid_auction_or_bidder(bids_db, bids_now, case, code):
 
 
 @pytest.mark.parametrize("has_previous_bid, minimum", [(False, 20_000), (True, 25_000)])
-
 def test_bid_rejects_price_below_minimum(bids_db, has_previous_bid, minimum):
     if has_previous_bid:
         place_bid(FakeBidsUnitOfWork(bids_db), 3, 1, 20_000)
@@ -97,7 +95,6 @@ def test_bid_checks_available_money_not_balance(bids_db):
 
 
 @pytest.mark.parametrize("seconds_left, extended", [(61, False), (60, True), (30, True)])
-
 def test_anti_sniping(bids_db, bids_now, seconds_left, extended):
     bids_db.auctions[1].end_time = bids_now + timedelta(seconds=seconds_left)
     result = place_bid(FakeBidsUnitOfWork(bids_db), 2, 1, 20_000)
@@ -126,7 +123,6 @@ def test_history_without_bids(bids_db):
 
 
 @pytest.mark.parametrize("deleted", [False, True])
-
 def test_history_rejects_missing_or_deleted_auction(bids_db, bids_now, deleted):
     if deleted:
         bids_db.auctions[1].deleted_at = bids_now
@@ -143,7 +139,6 @@ def test_history_rejects_missing_or_deleted_auction(bids_db, bids_now, deleted):
     ("SOLD", 2, 2, "WON"), ("SOLD", 3, 3, "LOST"),
     ("UNSOLD", 2, None, "NO_SALE"),
 ])
-
 def test_my_bids_status(bids_db, status, leader, winner, expected):
     auction = bids_db.auctions[1]
     auction.status, auction.highest_bidder_id, auction.winner_id = status, leader, winner
@@ -159,7 +154,6 @@ def test_my_bids_status(bids_db, status, leader, winner, expected):
 
 
 @pytest.mark.parametrize("phase", ["UPCOMING", "LIVE", "FINISHED"])
-
 def test_my_bids_phase_for_open_auction(bids_db, bids_now, phase):
     auction = bids_db.auctions[1]
     auction.highest_bidder_id = 2
