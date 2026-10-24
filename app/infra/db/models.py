@@ -1,7 +1,8 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, CheckConstraint, DateTime, Identity, Index, MetaData, String, func, Text, Integer, ForeignKey
+from sqlalchemy import BigInteger, CheckConstraint, DateTime, Identity, Index, MetaData, String, desc, func, Text, Integer, ForeignKey
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy import UniqueConstraint
 
 # Fixed constraint names so Alembic migrations stay stable.
 NAMING_CONVENTION = {
@@ -100,3 +101,17 @@ class Auction(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+class Bid(Base):
+    __tablename__ = "bids"
+    __table_args__ = (
+        UniqueConstraint("auction_id", "amount", name="uq_bids_auction_id_amount"),
+        Index("ix_bids_bidder_id_auction_id", "bidder_id", "auction_id"),
+        Index("ix_bids_auction_id_id", "auction_id", desc("id")),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    auction_id: Mapped[int] = mapped_column(ForeignKey("auctions.id"), nullable=False)
+    bidder_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    amount: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
