@@ -215,7 +215,7 @@ def delete_auction(db: Session, auction_id: int, user_id: int) -> None:
     if auction.bid_count > 0:
         raise ConflictError("AUCTION_HAS_BIDS", "Cannot delete an auction that has bids")
     if auction.status != "OPEN" or datetime.now(timezone.utc) >= auction.end_time:
-        raise ConflictError("INVALID_AUCTION_STATUS", "Only open auctions can be deleted")
+        raise ConflictError("AUCTION_NOT_CANCELLABLE", "Only open auctions can be deleted")
     
     auction.deleted_at = datetime.now(timezone.utc)
     db.commit()
