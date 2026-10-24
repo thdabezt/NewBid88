@@ -26,3 +26,10 @@ class NotFoundError(DomainError):
 
 class ConflictError(DomainError):
     """The object is in the wrong state for this action (409)."""
+
+
+class UsernameTaken(ConflictError):
+    """BR-01: the username is already registered."""
+
+    def __init__(self, username: str) -> None:
+        super().__init__("USERNAME_TAKEN", f"Username {username} is already taken")
