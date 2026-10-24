@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -13,3 +15,15 @@ class RegisterRequest(BaseModel):
         if len(password.encode()) > 72:
             raise ValueError("must be at most 72 bytes")
         return password
+
+
+class LoginRequest(BaseModel):
+    # No format rules: a wrong username or password is a 401, not a 422.
+    username: str = Field(max_length=30, examples=["an_nguyen"])
+    password: str = Field(max_length=72, examples=["matkhau123"])
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: Literal["Bearer"] = "Bearer"
+    expires_in: int = Field(description="Seconds until the token expires", examples=[3600])

@@ -43,6 +43,16 @@ class PasswordHasher(Protocol):
     def verify(self, plain: str, hashed: str) -> bool: ...
 
 
+class TokenService(Protocol):
+    def issue(self, user_id: int, username: str) -> tuple[str, int]:
+        """Return the access token and its lifetime in seconds."""
+        ...
+
+    def verify(self, token: str) -> int:
+        """Return the user id in the token. Raises InvalidToken."""
+        ...
+
+
 class Clock(Protocol):
     def now(self) -> datetime:
         """Current time, timezone-aware UTC."""

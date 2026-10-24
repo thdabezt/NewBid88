@@ -70,6 +70,14 @@ class FakeHasher:
         return hashed == "hashed:" + plain
 
 
+class FakeTokenService:
+    def issue(self, user_id: int, username: str) -> tuple[str, int]:
+        return f"token-for-{user_id}", 3600
+
+    def verify(self, token: str) -> int:
+        return int(token.removeprefix("token-for-"))
+
+
 class FixedClock:
     def __init__(self, now: datetime = datetime(2026, 10, 20, 12, 0, tzinfo=UTC)) -> None:
         self.current = now

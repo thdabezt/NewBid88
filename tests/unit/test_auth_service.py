@@ -1,8 +1,8 @@
 import pytest
 
-from app.domain.errors import UsernameTaken
+from app.domain.errors import InvalidCredentials, UsernameTaken
 from app.services.auth_service import AuthService
-from tests.fakes import FakeHasher, FakeUnitOfWork, FixedClock, InMemoryDb
+from tests.fakes import FakeHasher, FakeTokenService, FakeUnitOfWork, FixedClock, InMemoryDb
 
 
 @pytest.fixture()
@@ -22,7 +22,7 @@ def clock():
 
 @pytest.fixture()
 def service(db, hasher, clock):
-    return AuthService(lambda: FakeUnitOfWork(db), hasher, clock)
+    return AuthService(lambda: FakeUnitOfWork(db), hasher, FakeTokenService(), clock)
 
 
 def test_register_stores_lowercase_username_and_hashed_password(service, db, clock):
@@ -47,3 +47,22 @@ def test_register_rejects_taken_username_in_any_case(service, db):
         service.register("AN_NGUYEN", "khac12345")
     assert len(db.users) == 1
     assert len(db.wallets) == 1
+
+
+def test_login_returns_token_for_right_password(service):
+    user = service.register("an_nguyen", "matkhau123")
+
+    assert service.login("An_Nguyen", "matkhau123") == (f"token-for-{user.id}", 3600)
+
+
+def test_login_rejects_wrong_password(service):
+    service.register("an_nguyen", "matkhau123")
+
+    with pytest.raises(InvalidCredentials):
+        service.login("an_nguyen", "wrong-password")
+
+
+def test_login_unknown_user_still_verifies_a_password(service, hasher):
+    with pytest.raises(InvalidCredentials):
+        service.login("nobody", "matkhau123")
+    assert hasher.verify_calls == 1
