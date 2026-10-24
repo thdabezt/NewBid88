@@ -4,7 +4,7 @@ from typing import Literal
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.domain.errors import DomainError, NotFoundError, ValidationError
+from app.domain.errors import ConflictError, DomainError, ForbiddenError, NotFoundError, ValidationError
 from app.infra.db.models import Auction, User
 
 AuctionPhase = Literal["LIVE", "UPCOMING", "ENDED"]
@@ -205,3 +205,17 @@ def get_auction(db: Session, auction_id: int) -> dict:
         leader_username = leader.username if leader else None
 
     return _detail(auction, seller.username, leader_username, datetime.now(timezone.utc))
+
+def delete_auction(db: Session, auction_id: int, user_id: int) -> None:
+    auction = db.get(Auction, auction_id)
+    if not auction or auction.deleted_at is not None:
+        raise NotFoundError("AUCTION_NOT_FOUND", "Auction not found")
+    if auction.seller_id != user_id:
+        raise ForbiddenError("NOT_OWNER", "You are not the owner of this auction")
+    if auction.bid_count > 0:
+        raise ConflictError("AUCTION_HAS_BIDS", "Cannot delete an auction that has bids")
+    if auction.status != "OPEN" or datetime.now(timezone.utc) >= auction.end_time:
+        raise ConflictError("INVALID_AUCTION_STATUS", "Only open auctions can be deleted")
+    
+    auction.deleted_at = datetime.now(timezone.utc)
+    db.commit()

@@ -11,6 +11,7 @@ from app.services.auctions import (
     create_auction,
     list_auctions,
     get_auction,
+    delete_auction,
 )
 
 router = APIRouter(tags=["auctions"])
@@ -105,3 +106,15 @@ def read_auction(
     db: DbSession,
 ) -> AuctionDetailResponse:
     return AuctionDetailResponse(**get_auction(db, auction_id))
+
+@router.delete("/auctions/{auction_id}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_auction(
+    auction_id: Annotated[
+        int,
+        Path(ge=1),
+    ],
+    user_id: CurrentUserId,
+    db: DbSession,
+) -> None:
+    delete_auction(db, auction_id, user_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
