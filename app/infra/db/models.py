@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, CheckConstraint, DateTime, Identity, Index, MetaData, String, func
+from sqlalchemy import BigInteger, CheckConstraint, DateTime, Identity, Index, MetaData, String, func, Text, Integer, ForeignKey
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 # Fixed constraint names so Alembic migrations stay stable.
@@ -50,3 +50,49 @@ class WalletTransaction(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    username: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
+
+
+class Auction(Base):
+    __tablename__ = "auctions"
+    __table_args__ = (
+        CheckConstraint("starting_price >= 0", name="starting_price_nonnegative"),
+        CheckConstraint("current_price >= 0", name="current_price_nonnegative"),
+        CheckConstraint("bid_count >= 0", name="bid_count_nonnegative"),
+        CheckConstraint("end_time > start_time", name="valid_time_range"),
+        CheckConstraint("reserve_price IS NULL OR reserve_price >= starting_price", name="reserve_not_below_start"),
+        CheckConstraint("status IN ('OPEN', 'SOLD', 'UNSOLD')", name="valid_status"),
+        CheckConstraint("min_increment > 0", name="min_increment_positive"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    seller_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    title: Mapped[str] = mapped_column(String(120), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
+    category: Mapped[str] = mapped_column(String(50), nullable=False)
+    starting_price: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    min_increment: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=1_000, server_default="1000"
+    )
+    reserve_price: Mapped[int | None] = mapped_column(BigInteger)
+    current_price: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    bid_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    highest_bid_id: Mapped[int | None] = mapped_column(ForeignKey("bids.id"), nullable=True)
+    highest_bidder_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    end_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    extended_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="OPEN", server_default="OPEN")
+    winner_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    final_price: Mapped[int | None] = mapped_column(BigInteger)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

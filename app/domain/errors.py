@@ -8,6 +8,10 @@ class DomainError(Exception):
         self.details = details
 
 
+class ValidationError(DomainError):
+    """Input failed a business-level validation rule (422)."""
+
+
 class AuthenticationError(DomainError):
     """Unknown identity: wrong username or password (401)."""
 

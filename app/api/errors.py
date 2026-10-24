@@ -9,6 +9,7 @@ from app.domain.errors import (
     DomainError,
     ForbiddenError,
     NotFoundError,
+    ValidationError,
 )
 
 HTTP_ERROR_CODES = {401: "UNAUTHORIZED", 403: "FORBIDDEN", 404: "NOT_FOUND", 405: "METHOD_NOT_ALLOWED"}
@@ -24,7 +25,9 @@ def error_response(status: int, code: str, message: str, details: dict | None = 
 def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(DomainError)
     async def domain_error(request: Request, exc: DomainError) -> JSONResponse:
-        if isinstance(exc, AuthenticationError):
+        if isinstance(exc, ValidationError):
+            status = 422
+        elif isinstance(exc, AuthenticationError):
             status = 401
         elif isinstance(exc, ForbiddenError):
             status = 403
