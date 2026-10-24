@@ -65,6 +65,20 @@ def _summary(auction: Auction, seller_username: str, now: datetime) -> dict:
         "end_time": auction.end_time,
     }
 
+def _my_auction_detail(auction: Auction, seller_username: str, winner_username: str | None) -> dict:
+    response = _summary(auction, seller_username, datetime.now(timezone.utc))
+    response.update(
+        {
+            "starting_price": auction.starting_price,
+            "min_increment": auction.min_increment,
+            "reserve_price": auction.reserve_price,
+            "final_price": auction.final_price,
+            "winner": _mask_username(winner_username),
+            "closed_at": auction.closed_at,
+        }
+    )
+    return response
+
 def create_auction(
     db: Session,
     seller_id: int,
@@ -219,3 +233,53 @@ def delete_auction(db: Session, auction_id: int, user_id: int) -> None:
     
     auction.deleted_at = datetime.now(timezone.utc)
     db.commit()
+
+def get_my_auctions(
+    db: Session,
+    user_id: int,
+    *,
+    status: AuctionStatus | None = None,
+    page: int = 1,
+    size: int = 20,
+) -> tuple[list[dict], int]:
+    if page < 1:
+        raise ValidationError("INVALID_PAGE", "Page must be at least 1")
+    if size < 1 or size > 100:
+        raise ValidationError("INVALID_PAGE_SIZE", "Page size must be between 1 and 100")
+
+    seller = db.get(User, user_id)
+    if seller is None:
+        raise NotFoundError("USER_NOT_FOUND", "User not found")
+
+    query = db.query(Auction).filter(
+        Auction.seller_id == user_id,
+        Auction.deleted_at.is_(None),
+    )
+    if status is not None:
+        query = query.filter(Auction.status == status)
+
+    total = query.count()
+    auctions = (
+        query
+        .order_by(Auction.start_time.desc(), Auction.id.desc())
+        .offset((page - 1) * size)
+        .limit(size)
+        .all()
+    )
+
+    winner_ids = {
+        auction.winner_id
+        for auction in auctions
+        if auction.winner_id is not None
+    }
+    winners = db.query(User).filter(User.id.in_(winner_ids)).all() if winner_ids else []
+    winner_map = {winner.id: winner.username for winner in winners}
+
+    return [
+        _my_auction_detail(
+            auction,
+            seller.username,
+            winner_map.get(auction.winner_id),
+        )
+        for auction in auctions
+    ], total

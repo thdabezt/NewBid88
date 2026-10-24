@@ -50,3 +50,17 @@ class AuctionListResponse(BaseModel):
     page: int
     size: int
     total: int
+
+class MyAuctionDetail(AuctionSummaryResponse):
+    starting_price: int
+    min_increment: int
+    reserve_price: int | None
+    final_price: int | None
+    winner: str | None
+    closed_at: datetime | None
+
+class MyAuctionResponse(BaseModel):
+    items: list[MyAuctionDetail]
+    page: int
+    size: int
+    total: int
