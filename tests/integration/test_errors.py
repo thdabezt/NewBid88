@@ -9,6 +9,7 @@ from app.domain.errors import (
     DomainError,
     ForbiddenError,
     NotFoundError,
+    ValidationError,
 )
 from app.main import app
 

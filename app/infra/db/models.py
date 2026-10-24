@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, CheckConstraint, DateTime, Identity, Index, MetaData, String, func
+from sqlalchemy import BigInteger, CheckConstraint, DateTime, Identity, Index, MetaData, String, func, Text, Integer, ForeignKey
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 # Fixed constraint names so Alembic migrations stay stable.

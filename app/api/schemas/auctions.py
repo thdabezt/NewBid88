@@ -44,3 +44,9 @@ class AuctionDetailResponse(AuctionSummaryResponse):
     final_price: int | None
     closed_at: datetime | None
     created_at: datetime
+
+class AuctionListResponse(BaseModel):
+    auctions: list[AuctionSummaryResponse]
+    page: int
+    size: int
+    total: int

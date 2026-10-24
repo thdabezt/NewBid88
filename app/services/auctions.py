@@ -4,7 +4,7 @@ from typing import Literal
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.domain.errors import DomainError, NotFoundError
+from app.domain.errors import DomainError, NotFoundError, ValidationError
 from app.infra.db.models import Auction, User
 
 AuctionPhase = Literal["LIVE", "UPCOMING", "ENDED"]
@@ -127,3 +127,65 @@ def create_auction(
 
     return _detail(auction, seller.username, None, datetime.now(timezone.utc))
 
+def list_auctions(
+    db: Session,
+    *,
+    state: AuctionPhase = "LIVE",
+    q: str | None = None,
+    category: str | None = None,
+    seller_id: int | None = None,
+    min_price: int | None = None,
+    max_price: int | None = None,
+    sort_by: Literal["ending_soon", "newest", "price_asc", "price_desc"] = "ending_soon",
+    page: int = 1,
+    size: int = 20,
+) -> tuple[list[dict], int]:
+    if page < 1:
+        raise ValidationError("INVALID_PAGE", "Page must be at least 1")
+    if size < 1 or size > 100:
+        raise ValidationError("INVALID_PAGE_SIZE", "Page size must be between 1 and 100")
+    if min_price is not None and max_price is not None and min_price > max_price:
+        raise ValidationError("INVALID_PRICE_RANGE", "Minimum price cannot exceed maximum price")
+
+    now = datetime.now(timezone.utc)
+    query = db.query(Auction).filter(Auction.deleted_at.is_(None))
+
+    if state == "UPCOMING":
+        query = query.filter(Auction.start_time > now)
+    elif state == "ENDED":
+        query = query.filter(Auction.end_time <= now)
+    else:
+        query = query.filter(Auction.start_time <= now, Auction.end_time > now)
+
+    if q:
+        query = query.filter(Auction.title.ilike(f"%{q}%"))
+    if category:
+        query = query.filter(Auction.category == category)
+    if seller_id is not None:
+        query = query.filter(Auction.seller_id == seller_id)
+    if min_price is not None:
+        query = query.filter(Auction.current_price >= min_price)
+    if max_price is not None:
+        query = query.filter(Auction.current_price <= max_price)
+
+    total = query.count()
+
+    if sort_by == "ending_soon":
+        ordered_query = query.order_by(Auction.end_time.asc(), Auction.id.asc())
+    elif sort_by == "newest":
+        ordered_query = query.order_by(Auction.start_time.desc(), Auction.id.desc())
+    elif sort_by == "price_asc":
+        ordered_query = query.order_by(Auction.current_price.asc(), Auction.id.asc())
+    elif sort_by == "price_desc":
+        ordered_query = query.order_by(Auction.current_price.desc(), Auction.id.desc())
+    else:
+        raise ValidationError("INVALID_SORT", "Unsupported auction sort order")
+
+    auctions = ordered_query.offset((page - 1) * size).limit(size).all()
+    seller_ids = {auction.seller_id for auction in auctions}
+    sellers = db.query(User).filter(User.id.in_(seller_ids)).all() if seller_ids else []
+    seller_map = {seller.id: seller.username for seller in sellers}
+
+    return [
+        _summary(auction, seller_map.get(auction.seller_id, ""), now) for auction in auctions
+    ], total
