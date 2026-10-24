@@ -11,9 +11,9 @@ PUBLIC_ROUTES = [
     ("POST", re.compile(r"/auth/(register|login)")),
     ("GET", re.compile(r"/auctions(/\d+(/bids)?)?")),
     ("GET", re.compile(r"/health")),
-    ("GET", re.compile(r"/(docs|docs/oauth2-redirect|redoc|openapi\.json)")),
+    ("GET", re.compile(r"/(docs|docs/oauth2-redirect|redoc|openapi\.json)"))
+    ("GET", re.compile(r"/auctions/[^/]+/bids")),
 ]
-
 
 def is_public(method: str, path: str) -> bool:
     return any(method == public_method and pattern.fullmatch(path) for public_method, pattern in PUBLIC_ROUTES)

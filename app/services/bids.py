@@ -84,3 +84,24 @@ def place_bid(uow, user_id: int, auction_id: int, amount: int, snipe_window: int
         # Commit all bid, wallet, ledger, and auction changes in a single transaction.
         uow.commit()
         return result
+
+# Get bid history for an auction.
+def bid_history(uow, auction_id: int, page: int, size: int) -> dict:
+    with uow:
+        uow.read_only()
+
+        # Verify that the auction exists.
+        if uow.bids.get_auction(auction_id) is None:
+            raise NotFoundError("AUCTION_NOT_FOUND", "Auction not found")
+
+        rows, total = uow.bids.history(auction_id, page, size)
+        items = []
+
+        # Mask bidder usernames by keeping only the first two characters.
+        for bid, username in rows:
+            items.append({
+                "id": bid.id, "bidder": username[:2] + "***",
+                "amount": bid.amount, "created_at": bid.created_at,
+            })
+
+        return {"items": items, "page": page, "size": size, "total": total}

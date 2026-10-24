@@ -1,4 +1,4 @@
-# Database operations for auction bidding, including wallet locking, bid creation, and transaction logging.
+# Database operations for auction bidding, including wallet locking, bid creation, transaction logging and bid history retrieval.
 
 from sqlalchemy import func, select
 from app.infra.db.models import Auction, Bid, User, Wallet, WalletTransaction
@@ -38,3 +38,19 @@ class BidsRepository:
             auction_id=auction_id, bid_id=bid_id, created_at=now,
         )
         self.db.add(transaction)
+
+
+    # Get bid history for an auction, ordered by newest first.
+    def history(self, auction_id: int, page: int, size: int):
+        total = self.db.scalar(select(func.count()).select_from(Bid).where(Bid.auction_id == auction_id))
+
+        query = (
+            select(Bid, User.username)
+            .join(User, User.id == Bid.bidder_id)
+            .where(Bid.auction_id == auction_id)
+            .order_by(Bid.id.desc())
+            .offset((page - 1) * size)
+            .limit(size)
+        )
+
+        return self.db.execute(query).all(), total

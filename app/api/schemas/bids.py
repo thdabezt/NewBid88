@@ -23,3 +23,17 @@ class PlaceBidResponse(BaseModel):
     bid: BidInfo
     auction: BidAuctionInfo
     wallet: WalletResponse
+
+
+class BidHistoryItem(BaseModel):
+    id: int
+    bidder: str
+    amount: int
+    created_at: datetime
+
+
+class BidHistoryResponse(BaseModel):
+    items: list[BidHistoryItem]
+    page: int    
+    size: int   
+    total: int 
