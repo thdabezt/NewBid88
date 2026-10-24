@@ -74,6 +74,7 @@ def test_login_returns_bearer_token(client):
 
 
 @pytest.mark.parametrize("username, password", [("an_nguyen", "wrong-password"), ("nobody", "matkhau123")])
+
 def test_login_wrong_credentials_look_the_same(client, username, password):
     register(client)
 
@@ -83,20 +84,27 @@ def test_login_wrong_credentials_look_the_same(client, username, password):
     assert response.json() == {"error": {"code": "INVALID_CREDENTIALS", "message": "Wrong username or password"}}
 
 
+@pytest.mark.parametrize("method, path", [("GET", "/wallet"), ("POST", "/auctions/1/bids"), ("GET", "/users/me/bids")])
+
 @pytest.mark.parametrize(
     "headers",
     [{}, {"Authorization": "Bearer not-a-jwt"}, {"Authorization": "Basic abc"}],
     ids=["missing", "invalid", "wrong-scheme"],
 )
-def test_route_needing_login_rejects_bad_token(client, headers):
-    response = client.get("/wallet", headers=headers)
+
+def test_route_needing_login_rejects_bad_token(client, headers, method, path):
+    response = client.request(method, path, headers=headers)
 
     assert response.status_code == 401
     assert response.headers["WWW-Authenticate"] == "Bearer"
     assert response.json()["error"]["code"] == "UNAUTHORIZED"
 
 
-@pytest.mark.parametrize("method, path", [("POST", "/wallet/topups"), ("POST", "/auctions"), ("DELETE", "/auctions/1")])
+@pytest.mark.parametrize("method, path", [
+    ("POST", "/wallet/topups"), ("POST", "/auctions"), ("DELETE", "/auctions/1"),
+    ("POST", "/auctions/1/bids"), ("GET", "/users/me/bids"),
+])
+
 def test_other_routes_needing_login_reject_missing_token(client, method, path):
     response = client.request(method, path)
 
@@ -135,3 +143,6 @@ def test_swagger_is_public_and_lists_auth_endpoints(client):
 
     assert {"/auth/register", "/auth/login", "/users/me"} <= set(spec["paths"])
     assert spec["paths"]["/users/me"]["get"]["security"] == [{"HTTPBearer": []}]
+    assert spec["paths"]["/auctions/{id}/bids"]["post"]["security"] == [{"HTTPBearer": []}]
+    assert spec["paths"]["/users/me/bids"]["get"]["security"] == [{"HTTPBearer": []}]
+    assert not spec["paths"]["/auctions/{id}/bids"]["get"].get("security")

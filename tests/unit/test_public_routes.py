@@ -11,6 +11,7 @@ from app.api.middleware import is_public
         ("GET", "/auctions"),
         ("GET", "/auctions/5"),
         ("GET", "/auctions/5/bids"),
+        ("GET", "/auctions/abc/bids"),
         ("GET", "/health"),
         ("GET", "/docs"),
         ("GET", "/openapi.json"),
@@ -25,6 +26,7 @@ def test_public(method, path):
     [
         ("GET", "/users/me"),
         ("GET", "/users/me/auctions"),
+        ("GET", "/users/me/bids"),
         ("POST", "/auctions"),
         ("DELETE", "/auctions/5"),
         ("POST", "/auctions/5/bids"),
