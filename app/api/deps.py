@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.domain.errors import AuthenticationError
 from app.infra.db.session import SessionLocal
+from app.infra.uow import SqlAlchemyUnitOfWork
 from app.services.auth_service import AuthService
 
 # Only here so Swagger shows the lock icon and the Authorize button.
@@ -52,3 +53,10 @@ def get_current_user_id(
 
 
 CurrentUserId = Annotated[int, Depends(get_current_user_id)]
+
+
+def get_bids_uow(request: Request) -> SqlAlchemyUnitOfWork:
+    return request.app.state.uow_factory()
+
+
+BidsUow = Annotated[SqlAlchemyUnitOfWork, Depends(get_bids_uow)]

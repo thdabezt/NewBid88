@@ -4,7 +4,7 @@ from fastapi import FastAPI
 
 from app.api.errors import register_error_handlers
 from app.api.middleware import JWTAuthMiddleware
-from app.api.routers import auctions, auth, health, users, wallet
+from app.api.routers import auctions, auth, health, users, wallet, bids
 from app.config import settings
 from app.infra.clock import SystemClock
 from app.infra.db.session import SessionLocal, ping
@@ -19,6 +19,7 @@ uow_factory = partial(SqlAlchemyUnitOfWork, SessionLocal)
 
 app = FastAPI(title="NewBid88 API")
 app.state.db_ping = ping
+app.state.uow_factory = uow_factory
 app.state.auth_service = AuthService(uow_factory, BcryptHasher(settings.bcrypt_rounds), tokens, clock)
 
 app.add_middleware(JWTAuthMiddleware, tokens=tokens)
@@ -27,4 +28,6 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(wallet.router)
 app.include_router(auctions.router)
+app.include_router(bids.router)
+
 register_error_handlers(app)
