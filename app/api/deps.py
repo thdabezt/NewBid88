@@ -2,10 +2,16 @@ from collections.abc import Callable, Generator
 from typing import Annotated
 
 from fastapi import Depends, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.domain.errors import AuthenticationError
 from app.infra.db.session import SessionLocal
+from app.services.auth_service import AuthService
+
+# Only here so Swagger shows the lock icon and the Authorize button.
+# The token itself is checked once, in JWTAuthMiddleware.
+bearer_scheme = HTTPBearer(auto_error=False, description="Access token from POST /auth/login")
 
 
 def get_db_ping(request: Request) -> Callable[[], bool]:
@@ -27,7 +33,18 @@ def get_db() -> Generator[Session, None, None]:
 DbSession = Annotated[Session, Depends(get_db)]
 
 
-def get_current_user_id(request: Request) -> int:
+def get_auth_service(request: Request) -> AuthService:
+    return request.app.state.auth_service
+
+
+Auth = Annotated[AuthService, Depends(get_auth_service)]
+
+
+def get_current_user_id(
+    request: Request,
+    _credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+) -> int:
+    """The user id JWTAuthMiddleware put on request.state."""
     user_id = getattr(request.state, "user_id", None)
     if user_id is None:
         raise AuthenticationError("UNAUTHORIZED", "Authentication required")
