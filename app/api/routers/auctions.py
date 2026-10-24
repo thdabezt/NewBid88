@@ -1,5 +1,5 @@
 from typing import Literal, Annotated
-from fastapi import APIRouter, Query, Response, status
+from fastapi import APIRouter, Query, Response, status, Path
 
 from app.api.deps import CurrentUserId, DbSession
 from app.api.schemas.auctions import (
@@ -10,6 +10,7 @@ from app.api.schemas.auctions import (
 from app.services.auctions import (
     create_auction,
     list_auctions,
+    get_auction,
 )
 
 router = APIRouter(tags=["auctions"])
@@ -94,3 +95,13 @@ def browse_auctions(
         size=size,
         total=total,
     )
+
+@router.get("/auctions/{auction_id}", response_model=AuctionDetailResponse)
+def read_auction(
+    auction_id: Annotated[
+        int,
+        Path(ge=1),
+    ],
+    db: DbSession,
+) -> AuctionDetailResponse:
+    return AuctionDetailResponse(**get_auction(db, auction_id))

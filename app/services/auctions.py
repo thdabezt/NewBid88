@@ -189,3 +189,19 @@ def list_auctions(
     return [
         _summary(auction, seller_map.get(auction.seller_id, ""), now) for auction in auctions
     ], total
+    
+def get_auction(db: Session, auction_id: int) -> dict:
+    auction = db.get(Auction, auction_id)
+    if not auction or auction.deleted_at is not None:
+        raise NotFoundError("AUCTION_NOT_FOUND", "Auction not found")
+    
+    seller = db.get(User, auction.seller_id)
+    if not seller:
+        raise NotFoundError("AUCTION_NOT_FOUND", "Seller not found")
+    
+    leader_username = None
+    if auction.highest_bidder_id:
+        leader = db.get(User, auction.highest_bidder_id)
+        leader_username = leader.username if leader else None
+
+    return _detail(auction, seller.username, leader_username, datetime.now(timezone.utc))
