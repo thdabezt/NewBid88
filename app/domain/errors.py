@@ -47,3 +47,8 @@ class InvalidToken(AuthenticationError):
 
     def __init__(self, message: str = "Invalid or expired token") -> None:
         super().__init__("UNAUTHORIZED", message)
+
+
+class UserNotFound(NotFoundError):
+    def __init__(self, user_id: int) -> None:
+        super().__init__("USER_NOT_FOUND", f"User {user_id} does not exist")

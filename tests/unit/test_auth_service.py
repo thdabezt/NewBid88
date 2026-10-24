@@ -1,6 +1,6 @@
 import pytest
 
-from app.domain.errors import InvalidCredentials, UsernameTaken
+from app.domain.errors import InvalidCredentials, UsernameTaken, UserNotFound
 from app.services.auth_service import AuthService
 from tests.fakes import FakeHasher, FakeTokenService, FakeUnitOfWork, FixedClock, InMemoryDb
 
@@ -66,3 +66,14 @@ def test_login_unknown_user_still_verifies_a_password(service, hasher):
     with pytest.raises(InvalidCredentials):
         service.login("nobody", "matkhau123")
     assert hasher.verify_calls == 1
+
+
+def test_get_user(service):
+    user = service.register("an_nguyen", "matkhau123")
+
+    assert service.get_user(user.id) == user
+
+
+def test_get_user_missing(service):
+    with pytest.raises(UserNotFound):
+        service.get_user(999)

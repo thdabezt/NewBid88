@@ -21,6 +21,11 @@ def register(client, username="an_nguyen", password="matkhau123"):
     return client.post("/auth/register", json={"username": username, "password": password})
 
 
+def login_header(client, username="an_nguyen", password="matkhau123") -> dict[str, str]:
+    token = client.post("/auth/login", json={"username": username, "password": password}).json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
 def test_register_creates_account(client):
     response = register(client, username="An_Nguyen")
 
@@ -97,3 +102,36 @@ def test_other_routes_needing_login_reject_missing_token(client, method, path):
 
     assert response.status_code == 401
     assert response.json()["error"]["code"] == "UNAUTHORIZED"
+
+
+def test_me_returns_logged_in_user(client):
+    user = register(client).json()
+
+    response = client.get("/users/me", headers=login_header(client))
+
+    assert response.status_code == 200
+    assert response.json() == user
+
+
+def test_me_needs_login(client):
+    response = client.get("/users/me")
+
+    assert response.status_code == 401
+
+
+def test_me_when_user_no_longer_exists(client):
+    token, _ = tokens.issue(999, "ghost")
+
+    response = client.get("/users/me", headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "USER_NOT_FOUND"
+
+
+def test_swagger_is_public_and_lists_auth_endpoints(client):
+    assert client.get("/docs").status_code == 200
+
+    spec = client.get("/openapi.json").json()
+
+    assert {"/auth/register", "/auth/login", "/users/me"} <= set(spec["paths"])
+    assert spec["paths"]["/users/me"]["get"]["security"] == [{"HTTPBearer": []}]

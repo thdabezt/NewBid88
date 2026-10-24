@@ -1,5 +1,5 @@
 from app.domain.entities import User, Wallet
-from app.domain.errors import InvalidCredentials
+from app.domain.errors import InvalidCredentials, UserNotFound
 from app.domain.ports import Clock, PasswordHasher, TokenService, UnitOfWorkFactory
 
 
@@ -31,3 +31,10 @@ class AuthService:
         if user is None or not password_ok:
             raise InvalidCredentials()
         return self._tokens.issue(user.id, user.username)
+
+    def get_user(self, user_id: int) -> User:
+        with self._uow() as uow:
+            user = uow.users.get(user_id)
+        if user is None:
+            raise UserNotFound(user_id)
+        return user
