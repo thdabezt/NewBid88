@@ -3,6 +3,7 @@ from functools import partial
 from fastapi import FastAPI
 
 from app.api.errors import register_error_handlers
+from app.api.middleware import JWTAuthMiddleware
 from app.api.routers import auctions, auth, health, wallet
 from app.config import settings
 from app.infra.clock import SystemClock
@@ -20,6 +21,7 @@ app = FastAPI(title="NewBid88 API")
 app.state.db_ping = ping
 app.state.auth_service = AuthService(uow_factory, BcryptHasher(settings.bcrypt_rounds), tokens, clock)
 
+app.add_middleware(JWTAuthMiddleware, tokens=tokens)
 app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(wallet.router)

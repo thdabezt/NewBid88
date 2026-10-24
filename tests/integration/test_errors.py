@@ -11,7 +11,7 @@ from app.domain.errors import (
     NotFoundError,
     ValidationError,
 )
-from app.main import app
+from app.main import app, tokens
 
 
 def client_raising(exc: Exception) -> TestClient:
@@ -59,7 +59,16 @@ def test_unexpected_error_hides_internals():
 
 
 def test_unknown_path_returns_not_found():
-    response = TestClient(app).get("/no-such-path")
+    token, _ = tokens.issue(1, "an_nguyen")
+
+    response = TestClient(app).get("/no-such-path", headers={"Authorization": f"Bearer {token}"})
 
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "NOT_FOUND"
+
+
+def test_unknown_path_without_token_is_unauthorized():
+    # The middleware denies by default, so it answers before routing.
+    response = TestClient(app).get("/no-such-path")
+
+    assert response.status_code == 401

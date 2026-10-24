@@ -76,3 +76,24 @@ def test_login_wrong_credentials_look_the_same(client, username, password):
 
     assert response.status_code == 401
     assert response.json() == {"error": {"code": "INVALID_CREDENTIALS", "message": "Wrong username or password"}}
+
+
+@pytest.mark.parametrize(
+    "headers",
+    [{}, {"Authorization": "Bearer not-a-jwt"}, {"Authorization": "Basic abc"}],
+    ids=["missing", "invalid", "wrong-scheme"],
+)
+def test_route_needing_login_rejects_bad_token(client, headers):
+    response = client.get("/wallet", headers=headers)
+
+    assert response.status_code == 401
+    assert response.headers["WWW-Authenticate"] == "Bearer"
+    assert response.json()["error"]["code"] == "UNAUTHORIZED"
+
+
+@pytest.mark.parametrize("method, path", [("POST", "/wallet/topups"), ("POST", "/auctions"), ("DELETE", "/auctions/1")])
+def test_other_routes_needing_login_reject_missing_token(client, method, path):
+    response = client.request(method, path)
+
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "UNAUTHORIZED"
