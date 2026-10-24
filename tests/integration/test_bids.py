@@ -8,7 +8,6 @@ from tests.fakes import FakeBidsUnitOfWork
 
 
 @pytest.fixture()
-
 def client(bids_db, monkeypatch):
     monkeypatch.setattr(app.state, "uow_factory", lambda: FakeBidsUnitOfWork(bids_db))
     with TestClient(app) as test_client:
@@ -36,7 +35,6 @@ def test_place_bid_returns_201_and_uses_token_user(client, bids_db):
 
 
 @pytest.mark.parametrize("body", [{}, {"amount": "20000"}, {"amount": 20_000.5}, {"amount": True}])
-
 def test_place_bid_invalid_body(client, body):
     response = client.post("/auctions/1/bids", headers=auth_header(), json=body)
     assert response.status_code == 422
@@ -50,7 +48,6 @@ def test_place_bid_invalid_body(client, body):
     ("low", 400, "BID_TOO_LOW", {"min_required": 20_000}),
     ("funds", 400, "INSUFFICIENT_FUNDS", {"available": 10_000}),
 ])
-
 def test_place_bid_business_error_response(client, bids_db, case, status, code, details):
     if case == "closed":
         bids_db.auctions[1].status = "SOLD"
@@ -97,7 +94,6 @@ def test_history_not_found(client):
     "/auctions/abc/bids", "/auctions/0/bids", "/auctions/1/bids?page=0",
     "/auctions/1/bids?size=0", "/auctions/1/bids?size=101",
 ])
-
 def test_history_invalid_path_or_pagination(client, url):
     response = client.get(url)
     assert response.status_code == 422
@@ -128,7 +124,6 @@ def test_my_bids_empty(client):
 
 
 @pytest.mark.parametrize("query", ["status=INVALID", "page=0", "size=0", "size=101"])
-
 def test_my_bids_invalid_query(client, query):
     response = client.get(f"/users/me/bids?{query}", headers=auth_header())
     assert response.status_code == 422

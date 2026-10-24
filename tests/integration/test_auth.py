@@ -74,7 +74,6 @@ def test_login_returns_bearer_token(client):
 
 
 @pytest.mark.parametrize("username, password", [("an_nguyen", "wrong-password"), ("nobody", "matkhau123")])
-
 def test_login_wrong_credentials_look_the_same(client, username, password):
     register(client)
 
@@ -91,7 +90,6 @@ def test_login_wrong_credentials_look_the_same(client, username, password):
     [{}, {"Authorization": "Bearer not-a-jwt"}, {"Authorization": "Basic abc"}],
     ids=["missing", "invalid", "wrong-scheme"],
 )
-
 def test_route_needing_login_rejects_bad_token(client, headers, method, path):
     response = client.request(method, path, headers=headers)
 
@@ -104,7 +102,6 @@ def test_route_needing_login_rejects_bad_token(client, headers, method, path):
     ("POST", "/wallet/topups"), ("POST", "/auctions"), ("DELETE", "/auctions/1"),
     ("POST", "/auctions/1/bids"), ("GET", "/users/me/bids"),
 ])
-
 def test_other_routes_needing_login_reject_missing_token(client, method, path):
     response = client.request(method, path)
 
