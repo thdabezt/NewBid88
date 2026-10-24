@@ -54,3 +54,35 @@ class BidsRepository:
         )
 
         return self.db.execute(query).all(), total
+
+    # Get all auctions the user has bid on.
+    def mine(self, user_id: int, status: str | None, page: int, size: int):
+        my_bids = (
+            select(Bid.auction_id, func.max(Bid.amount).label("my_highest_amount"))
+            .where(Bid.bidder_id == user_id)
+            .group_by(Bid.auction_id)
+            .subquery()
+        )
+
+        query = (
+            select(Auction, my_bids.c.my_highest_amount)
+            .join(my_bids, my_bids.c.auction_id == Auction.id)
+            .where(Auction.deleted_at.is_(None))
+        )
+
+        if status == "LEADING":
+            query = query.where(Auction.status == "OPEN", Auction.highest_bidder_id == user_id)
+        elif status == "OUTBID":
+            query = query.where(Auction.status == "OPEN", Auction.highest_bidder_id != user_id)
+        elif status == "WON":
+            query = query.where(Auction.status == "SOLD", Auction.winner_id == user_id)
+        elif status == "LOST":
+            query = query.where(Auction.status == "SOLD", Auction.winner_id != user_id)
+        elif status == "NO_SALE":
+            query = query.where(Auction.status == "UNSOLD")
+
+        total = self.db.scalar(select(func.count()).select_from(query.subquery()))
+
+        query = query.order_by(Auction.end_time.desc(), Auction.id.desc()).offset((page - 1) * size).limit(size)
+
+        return self.db.execute(query).all(), total

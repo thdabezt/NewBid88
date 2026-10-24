@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 
 from app.domain.bids import validate_bid
 from app.domain.errors import DomainError, NotFoundError
-
+from app.domain.bids import auction_phase, my_bid_status
 
 # Validate and place a bid, update wallet balances and auction details, and commit all changes atomically.
 def place_bid(uow, user_id: int, auction_id: int, amount: int, snipe_window: int = 60, snipe_extension: int = 60) -> dict:
@@ -102,6 +102,28 @@ def bid_history(uow, auction_id: int, page: int, size: int) -> dict:
             items.append({
                 "id": bid.id, "bidder": username[:2] + "***",
                 "amount": bid.amount, "created_at": bid.created_at,
+            })
+
+        return {"items": items, "page": page, "size": size, "total": total}
+
+# Get the user's bid auctions.
+def my_bids(uow, user_id: int, status: str | None, page: int, size: int) -> dict:
+    with uow:
+        uow.read_only()
+
+        rows, total = uow.bids.mine(user_id, status, page, size)
+        now = datetime.now(UTC)
+        items = []
+
+        for auction, highest_amount in rows:
+            items.append({
+                "auction": {
+                    "id": auction.id, "title": auction.title,
+                    "status": auction.status, "phase": auction_phase(auction, now),
+                    "current_price": auction.current_price, "end_time": auction.end_time,
+                },
+                "my_highest_amount": highest_amount,
+                "my_status": my_bid_status(auction, user_id),
             })
 
         return {"items": items, "page": page, "size": size, "total": total}

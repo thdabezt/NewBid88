@@ -1,7 +1,7 @@
 from app.domain.errors import ConflictError, DomainError, ForbiddenError
 
 def validate_bid(auction, user_id: int, amount: int, now) -> None:
-    # Validate the bid and raise an exception if it is invalid
+    # Validate the bid and raise an exception if it is invalid.
     if auction.status != "OPEN" or now >= auction.end_time:
         raise ConflictError("AUCTION_NOT_ACTIVE", "Auction is not active")
     
@@ -21,3 +21,21 @@ def validate_bid(auction, user_id: int, amount: int, now) -> None:
 
     if amount < minimum:
         raise DomainError("BID_TOO_LOW", "Bid is below the minimum", {"min_required": minimum})
+
+
+# Determine the auction phase.
+def auction_phase(auction, now) -> str:
+    if auction.status != "OPEN" or now >= auction.end_time:
+        return "FINISHED"
+    if now < auction.start_time:
+        return "UPCOMING"
+    return "LIVE"
+
+
+# Get status.
+def my_bid_status(auction, user_id: int) -> str:
+    if auction.status == "OPEN":
+        return "LEADING" if auction.highest_bidder_id == user_id else "OUTBID"
+    if auction.status == "SOLD":
+        return "WON" if auction.winner_id == user_id else "LOST"
+    return "NO_SALE"

@@ -4,6 +4,8 @@ from pydantic import BaseModel, Field
 
 from app.api.schemas.wallet import WalletResponse
 
+from typing import Literal
+
 class BidCreate(BaseModel):
     amount: int = Field(strict=True)
 
@@ -37,3 +39,24 @@ class BidHistoryResponse(BaseModel):
     page: int    
     size: int   
     total: int 
+
+MyBidStatus = Literal["LEADING", "OUTBID", "WON", "LOST", "NO_SALE"]
+
+class MyBidAuction(BaseModel):
+    id: int
+    title: str
+    status: Literal["OPEN", "SOLD", "UNSOLD"]
+    phase: Literal["UPCOMING", "LIVE", "FINISHED"]
+    current_price: int
+    end_time: datetime
+
+class MyBidItem(BaseModel):
+    auction: MyBidAuction
+    my_highest_amount: int
+    my_status: MyBidStatus
+
+class MyBidsResponse(BaseModel):
+    items: list[MyBidItem]
+    page: int
+    size: int
+    total: int
