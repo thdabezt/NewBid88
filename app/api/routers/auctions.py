@@ -42,9 +42,9 @@ def create_auction_endpoint(
 def browse_auctions(
     db: DbSession,
     state: Annotated[
-        Literal["UPCOMING", "LIVE", "ENDED"],
+        Literal["upcoming", "live", "finished"],
         Query(description="Filter auctions by state"),
-    ] = "LIVE",
+    ] = "live",
     q: Annotated[
         str | None,
         Query(description="Search auctions by title"),
@@ -65,7 +65,7 @@ def browse_auctions(
         int | None,
         Query(ge=1_000, description="Filter auctions by maximum current price"),
     ] = None,
-    sort_by: Annotated[
+    sort: Annotated[
         Literal["ending_soon", "newest", "price_asc", "price_desc"],
         Query(description="Sort auctions by field"),
     ] = "ending_soon",
@@ -80,18 +80,18 @@ def browse_auctions(
 ) -> AuctionListResponse:
     auctions, total = list_auctions(
         db,
-        state=state,
+        state=state.upper(),
         q=q,
         category=category,
         seller_id=seller_id,
         min_price=min_price,
         max_price=max_price,
-        sort_by=sort_by,
+        sort=sort,
         page=page,
         size=size,
     )
     return AuctionListResponse(
-        auctions=auctions,
+        items=auctions,
         page=page,
         size=size,
         total=total,

@@ -7,27 +7,25 @@ from app.config import settings
 from app.domain.errors import ConflictError, DomainError, ForbiddenError, NotFoundError, ValidationError
 from app.infra.db.models import Auction, User
 
-AuctionPhase = Literal["LIVE", "UPCOMING", "ENDED"]
+AuctionPhase = Literal["LIVE", "UPCOMING", "FINISHED"]
 AuctionStatus = Literal["OPEN", "SOLD", "UNSOLD"]
 
 def _get_phase(auction: Auction, now: datetime) -> AuctionPhase:
     if auction.status != "OPEN" or now >= auction.end_time:
-        return "ENDED"
+        return "FINISHED"
     if now < auction.start_time:
         return "UPCOMING"
     return "LIVE"
 
 def _as_utc(value: datetime, field: str) -> datetime:
     if value.tzinfo is None:
-        raise DomainError("INVALID_TIMEZONE", f"{field} must include a timezone")
+        raise DomainError("INVALID_TIME_RANGE", f"{field} must include a timezone")
     return value.astimezone(timezone.utc)
 
 def _mask_username(username: str | None) -> str | None:
     if username is None:
         return None
-    if len(username) <= 2:
-        return username[0] + "*"
-    return username[0] + "*" * (len(username) - 2) + username[-1]
+    return username[:2] + "***"
 
 def _detail(auction: Auction, seller_username: str, leader_username: str | None, now: datetime) -> dict:
     response = _summary(auction, seller_username, now)
@@ -150,7 +148,7 @@ def list_auctions(
     seller_id: int | None = None,
     min_price: int | None = None,
     max_price: int | None = None,
-    sort_by: Literal["ending_soon", "newest", "price_asc", "price_desc"] = "ending_soon",
+    sort: Literal["ending_soon", "newest", "price_asc", "price_desc"] = "ending_soon",
     page: int = 1,
     size: int = 20,
 ) -> tuple[list[dict], int]:
@@ -165,11 +163,15 @@ def list_auctions(
     query = db.query(Auction).filter(Auction.deleted_at.is_(None))
 
     if state == "UPCOMING":
-        query = query.filter(Auction.start_time > now)
-    elif state == "ENDED":
+        query = query.filter(Auction.status == "OPEN", Auction.start_time > now)
+    elif state == "FINISHED":
         query = query.filter(Auction.end_time <= now)
     else:
-        query = query.filter(Auction.start_time <= now, Auction.end_time > now)
+        query = query.filter(
+            Auction.status == "OPEN",
+            Auction.start_time <= now,
+            Auction.end_time > now,
+        )
 
     if q:
         query = query.filter(Auction.title.ilike(f"%{q}%"))
@@ -184,13 +186,13 @@ def list_auctions(
 
     total = query.count()
 
-    if sort_by == "ending_soon":
+    if sort == "ending_soon":
         ordered_query = query.order_by(Auction.end_time.asc(), Auction.id.asc())
-    elif sort_by == "newest":
+    elif sort == "newest":
         ordered_query = query.order_by(Auction.start_time.desc(), Auction.id.desc())
-    elif sort_by == "price_asc":
+    elif sort == "price_asc":
         ordered_query = query.order_by(Auction.current_price.asc(), Auction.id.asc())
-    elif sort_by == "price_desc":
+    elif sort == "price_desc":
         ordered_query = query.order_by(Auction.current_price.desc(), Auction.id.desc())
     else:
         raise ValidationError("INVALID_SORT", "Unsupported auction sort order")
@@ -221,7 +223,12 @@ def get_auction(db: Session, auction_id: int) -> dict:
     return _detail(auction, seller.username, leader_username, datetime.now(timezone.utc))
 
 def delete_auction(db: Session, auction_id: int, user_id: int) -> None:
-    auction = db.get(Auction, auction_id)
+    auction = (
+        db.query(Auction)
+        .filter(Auction.id == auction_id)
+        .with_for_update()
+        .first()
+    )
     if not auction or auction.deleted_at is not None:
         raise NotFoundError("AUCTION_NOT_FOUND", "Auction not found")
     if auction.seller_id != user_id:
@@ -261,7 +268,7 @@ def get_my_auctions(
     total = query.count()
     auctions = (
         query
-        .order_by(Auction.start_time.desc(), Auction.id.desc())
+        .order_by(Auction.id.desc())
         .offset((page - 1) * size)
         .limit(size)
         .all()

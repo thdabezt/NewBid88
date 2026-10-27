@@ -4,15 +4,15 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 AuctionStatus = Literal["OPEN", "SOLD", "UNSOLD"]
-AuctionPhase = Literal["UPCOMING", "LIVE", "ENDED"]
+AuctionPhase = Literal["UPCOMING", "LIVE", "FINISHED"]
 
 class CreateAuctionRequest(BaseModel):
     title: str = Field(min_length=3, max_length=120)
     description: str | None = Field(default=None, max_length=2000)
     category: str = Field(min_length=1, max_length=50)
-    starting_price: int = Field(ge=1_000)
-    min_increment: int = Field(default=1_000, ge=1_000)
-    reserve_price: int | None = Field(default=None, ge=1_000)
+    starting_price: int
+    min_increment: int = 1_000
+    reserve_price: int | None = None
     start_time: datetime | None = None
     end_time: datetime
     
@@ -46,7 +46,7 @@ class AuctionDetailResponse(AuctionSummaryResponse):
     created_at: datetime
 
 class AuctionListResponse(BaseModel):
-    auctions: list[AuctionSummaryResponse]
+    items: list[AuctionSummaryResponse]
     page: int
     size: int
     total: int
