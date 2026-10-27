@@ -46,7 +46,7 @@ class AuctionDetailResponse(AuctionSummaryResponse):
     created_at: datetime
 
 class AuctionListResponse(BaseModel):
-    auctions: list[AuctionSummaryResponse]
+    items: list[AuctionSummaryResponse]
     page: int
     size: int
     total: int
