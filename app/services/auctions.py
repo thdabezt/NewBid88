@@ -165,11 +165,15 @@ def list_auctions(
     query = db.query(Auction).filter(Auction.deleted_at.is_(None))
 
     if state == "UPCOMING":
-        query = query.filter(Auction.start_time > now)
+        query = query.filter(Auction.status == "OPEN", Auction.start_time > now)
     elif state == "FINISHED":
         query = query.filter(Auction.end_time <= now)
     else:
-        query = query.filter(Auction.start_time <= now, Auction.end_time > now)
+        query = query.filter(
+            Auction.status == "OPEN",
+            Auction.start_time <= now,
+            Auction.end_time > now,
+        )
 
     if q:
         query = query.filter(Auction.title.ilike(f"%{q}%"))
@@ -221,7 +225,12 @@ def get_auction(db: Session, auction_id: int) -> dict:
     return _detail(auction, seller.username, leader_username, datetime.now(timezone.utc))
 
 def delete_auction(db: Session, auction_id: int, user_id: int) -> None:
-    auction = db.get(Auction, auction_id)
+    auction = (
+        db.query(Auction)
+        .filter(Auction.id == auction_id)
+        .with_for_update()
+        .first()
+    )
     if not auction or auction.deleted_at is not None:
         raise NotFoundError("AUCTION_NOT_FOUND", "Auction not found")
     if auction.seller_id != user_id:
