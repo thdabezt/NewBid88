@@ -27,7 +27,7 @@ def me(user_id: CurrentUserId, auth: Auth) -> UserResponse:
 
 
 @router.get("/me/auctions", response_model=MyAuctionResponse)
-def get_my_auctions(
+def fetch_my_auctions(
     user_id: CurrentUserId,
     db: DbSession,
     auction_status: Annotated[
