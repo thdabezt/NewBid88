@@ -25,9 +25,7 @@ def _as_utc(value: datetime, field: str) -> datetime:
 def _mask_username(username: str | None) -> str | None:
     if username is None:
         return None
-    if len(username) <= 2:
-        return username[0] + "*"
-    return username[0] + "*" * (len(username) - 2) + username[-1]
+    return username[:2] + "***"
 
 def _detail(auction: Auction, seller_username: str, leader_username: str | None, now: datetime) -> dict:
     response = _summary(auction, seller_username, now)
