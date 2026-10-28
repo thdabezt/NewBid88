@@ -2,7 +2,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query
 
-from app.api.deps import Auth, CurrentUserId, DbSession
+from app.api.deps import Auth, CurrentUserId, Uow
 from app.api.schemas.errors import ErrorResponse
 from app.api.schemas.users import UserResponse
 
@@ -29,7 +29,7 @@ def me(user_id: CurrentUserId, auth: Auth) -> UserResponse:
 @router.get("/me/auctions", response_model=MyAuctionResponse)
 def fetch_my_auctions(
     user_id: CurrentUserId,
-    db: DbSession,
+    uow: Uow,
     auction_status: Annotated[
         Literal["OPEN", "SOLD", "UNSOLD"] | None,
         Query(alias="status"),
@@ -43,5 +43,5 @@ def fetch_my_auctions(
         Query(ge=1, le=100),
     ] = 20,
 ) -> MyAuctionResponse:
-    auctions, total = get_my_auctions(db, user_id, status=auction_status, page=page, size=size)
+    auctions, total = get_my_auctions(uow, user_id, status=auction_status, page=page, size=size)
     return MyAuctionResponse(items=auctions, page=page, size=size, total=total)
