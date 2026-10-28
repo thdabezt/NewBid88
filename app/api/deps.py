@@ -1,12 +1,10 @@
-from collections.abc import Callable, Generator
+from collections.abc import Callable
 from typing import Annotated
 
 from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy.orm import Session
 
 from app.domain.errors import AuthenticationError
-from app.infra.db.session import SessionLocal
 from app.infra.uow import SqlAlchemyUnitOfWork
 from app.services.auth_service import AuthService
 
@@ -21,17 +19,6 @@ def get_db_ping(request: Request) -> Callable[[], bool]:
 
 
 DbPing = Annotated[Callable[[], bool], Depends(get_db_ping)]
-
-
-def get_db() -> Generator[Session, None, None]:
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-DbSession = Annotated[Session, Depends(get_db)]
 
 
 def get_auth_service(request: Request) -> AuthService:
@@ -55,8 +42,8 @@ def get_current_user_id(
 CurrentUserId = Annotated[int, Depends(get_current_user_id)]
 
 
-def get_bids_uow(request: Request) -> SqlAlchemyUnitOfWork:
+def get_uow(request: Request) -> SqlAlchemyUnitOfWork:
     return request.app.state.uow_factory()
 
 
-BidsUow = Annotated[SqlAlchemyUnitOfWork, Depends(get_bids_uow)]
+Uow = Annotated[SqlAlchemyUnitOfWork, Depends(get_uow)]

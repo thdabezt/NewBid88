@@ -2,7 +2,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query
 
-from app.api.deps import Auth, BidsUow, CurrentUserId
+from app.api.deps import Auth, CurrentUserId, Uow
 from app.api.schemas.errors import ErrorResponse
 from app.api.schemas.users import UserResponse
 
@@ -29,7 +29,7 @@ def me(user_id: CurrentUserId, auth: Auth) -> UserResponse:
 @router.get("/me/auctions", response_model=MyAuctionResponse)
 def fetch_my_auctions(
     user_id: CurrentUserId,
-    uow: BidsUow,
+    uow: Uow,
     auction_status: Annotated[
         Literal["OPEN", "SOLD", "UNSOLD"] | None,
         Query(alias="status"),

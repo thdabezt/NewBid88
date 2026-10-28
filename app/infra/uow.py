@@ -2,7 +2,11 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.infra.bids_repository import BidsRepository
-from app.infra.repositories import SqlAlchemyAuctionRepository, SqlAlchemyUserRepository, SqlAlchemyWalletRepository
+from app.infra.repositories import (
+    SqlAlchemyAuctionRepository,
+    SqlAlchemyUserRepository,
+    SqlAlchemyWalletRepository,
+)
 
 
 class SqlAlchemyUnitOfWork:
@@ -27,4 +31,4 @@ class SqlAlchemyUnitOfWork:
         self._session.commit()
 
     def read_only(self) -> None:
-            self._session.execute(text("SET TRANSACTION READ ONLY"))
+        self._session.execute(text("SET TRANSACTION READ ONLY"))

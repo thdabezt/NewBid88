@@ -1,7 +1,7 @@
 from typing import Literal, Annotated
 from fastapi import APIRouter, Query, Response, status, Path
 
-from app.api.deps import BidsUow, CurrentUserId
+from app.api.deps import CurrentUserId, Uow
 from app.api.schemas.auctions import (
     CreateAuctionRequest,
     AuctionDetailResponse,
@@ -21,7 +21,7 @@ def create_auction_endpoint(
     request: CreateAuctionRequest,
     response: Response,
     user_id: CurrentUserId,
-    uow: BidsUow,
+    uow: Uow,
 ) -> AuctionDetailResponse:
     auction = create_auction(
         uow,
@@ -40,7 +40,7 @@ def create_auction_endpoint(
 
 @router.get("/auctions", response_model=AuctionListResponse)
 def browse_auctions(
-    uow: BidsUow,
+    uow: Uow,
     state: Annotated[
         Literal["upcoming", "live", "finished"],
         Query(description="Filter auctions by state"),
@@ -103,7 +103,7 @@ def read_auction(
         int,
         Path(ge=1),
     ],
-    uow: BidsUow,
+    uow: Uow,
 ) -> AuctionDetailResponse:
     return AuctionDetailResponse(**get_auction(uow, auction_id))
 
@@ -114,7 +114,7 @@ def remove_auction(
         Path(ge=1),
     ],
     user_id: CurrentUserId,
-    uow: BidsUow,
+    uow: Uow,
 ) -> None:
     delete_auction(uow, auction_id, user_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
