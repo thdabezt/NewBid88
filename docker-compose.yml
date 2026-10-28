@@ -1,12 +1,13 @@
 services:
   db:
     image: postgres:16
+    restart: unless-stopped
     environment:
       POSTGRES_USER: newbid
-      POSTGRES_PASSWORD: newbid
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-newbid}
       POSTGRES_DB: newbid
     ports:
-      - "5432:5432"
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
     volumes:
       - db-data:/var/lib/postgresql/data
     healthcheck:
@@ -16,21 +17,30 @@ services:
       retries: 10
 
   api:
-    build: .
+    image: ${API_IMAGE:-newbid88-api:local}
+    build:
+      context: .
+    restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql+psycopg://newbid:newbid@db:5432/newbid
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://newbid:${DB_PASSWORD:-newbid}@db:5432/newbid}
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
       UVICORN_WORKERS: ${UVICORN_WORKERS:-1}
+      PORT: ${PORT:-8000}
     ports:
-      - "8000:8000"
+      - "${PORT:-8000}:${PORT:-8000}"
     depends_on:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:${PORT:-8000}/health', timeout=2)"
       interval: 10s
       timeout: 3s
       retries: 5
+      start_period: 15s
 
 volumes:
   db-data:
