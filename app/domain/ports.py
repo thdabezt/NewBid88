@@ -1,5 +1,7 @@
 """Interfaces the services layer depends on. infra implements them; main.py wires them in."""
 
+from __future__ import annotations
+
 from collections.abc import Callable
 from datetime import datetime
 from typing import Protocol
