@@ -1,0 +1,2543 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "NewBid88 — Đặc tả API",
+    "version": "1.0.0"
+  },
+  "tags": [
+    {
+      "name": "01. Đăng ký tài khoản"
+    },
+    {
+      "name": "02. Đăng nhập"
+    },
+    {
+      "name": "03. Thông tin tài khoản"
+    },
+    {
+      "name": "04. Tạo phiên đấu giá"
+    },
+    {
+      "name": "05. Tra cứu phiên đấu giá"
+    },
+    {
+      "name": "06. Chi tiết phiên đấu giá"
+    },
+    {
+      "name": "07. Xóa phiên đấu giá"
+    },
+    {
+      "name": "08. Đặt giá"
+    },
+    {
+      "name": "09. Lịch sử đặt giá"
+    },
+    {
+      "name": "10. Phiên đấu giá đã tạo"
+    },
+    {
+      "name": "11. Phiên đấu giá đã tham gia"
+    },
+    {
+      "name": "12. Thông tin ví"
+    },
+    {
+      "name": "13. Nạp tiền mô phỏng"
+    },
+    {
+      "name": "14. Lịch sử giao dịch ví"
+    },
+    {
+      "name": "15. Trạng thái hệ thống"
+    }
+  ],
+  "paths": {
+    "/auth/register": {
+      "post": {
+        "tags": [
+          "01. Đăng ký tài khoản"
+        ],
+        "description": "Tạo tài khoản để người dùng đăng nhập, mở phiên đấu giá, đặt giá và sử dụng ví. Người chưa đăng nhập có thể gọi API này.\n\n### Thông tin đăng ký\n- `username` dài 3–30 ký tự, gồm chữ cái, chữ số và dấu gạch dưới. Tên được chuyển về chữ thường trước khi lưu và không được trùng với tài khoản đã có.\n- `password` dài 8–72 ký tự, đồng thời không vượt quá 72 byte UTF-8. Mật khẩu được băm bằng bcrypt trước khi lưu.\n\nKhi đăng ký thành công, hệ thống tạo tài khoản cùng một ví có số dư và tiền tạm giữ bằng 0. Hai bản ghi được lưu trong cùng giao dịch; nếu có lỗi thì không tạo dở dang tài khoản hoặc ví. Nếu nhiều người cùng đăng ký một tên, chỉ một yêu cầu được chấp nhận.\n\nTrả `201 Created` với mã tài khoản, tên đăng nhập đã chuẩn hóa và thời điểm tạo. Không trả mật khẩu hoặc giá trị băm. Tên đã được sử dụng trả `409 USERNAME_TAKEN`; thông tin đăng ký không hợp lệ trả `422 VALIDATION_ERROR`.",
+        "operationId": "api_01_post_auth_register",
+        "x-api-number": 1,
+        "security": [],
+        "responses": {
+          "201": {
+            "description": "Tạo mới thành công.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                },
+                "example": {
+                  "id": 7,
+                  "username": "an_nguyen",
+                  "created_at": "2026-10-20T12:00:00Z"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "409": {
+            "description": "USERNAME_TAKEN",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "USERNAME_TAKEN": {
+                    "summary": "USERNAME_TAKEN",
+                    "value": {
+                      "error": {
+                        "code": "USERNAME_TAKEN",
+                        "message": "Username is already taken"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              },
+              "example": {
+                "username": "an_nguyen",
+                "password": "matkhau123"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": [
+          "02. Đăng nhập"
+        ],
+        "description": "Đăng nhập bằng tên tài khoản và mật khẩu để nhận token xác thực.\n\nHệ thống đối chiếu mật khẩu với giá trị băm đã lưu. Nếu thông tin đúng, API trả `200 OK` với:\n- `access_token`: JWT dùng để xác thực các yêu cầu tiếp theo.\n- `token_type`: `Bearer`.\n- `expires_in`: thời hạn token tính bằng giây, mặc định 3.600 giây (60 phút).\n\nToken được ký bằng HS256 và chứa mã người dùng (`sub`), tên đăng nhập, thời điểm cấp và thời điểm hết hạn. Client gửi token trong header `Authorization: Bearer <access_token>`. Hệ thống không cấp refresh token.\n\nTên tài khoản không tồn tại và mật khẩu sai đều trả `401 INVALID_CREDENTIALS` với cùng thông báo. Với tên không tồn tại, hệ thống vẫn thực hiện kiểm tra bcrypt bằng hash giả để hạn chế suy đoán tài khoản qua thời gian phản hồi. Body không hợp lệ trả `422 VALIDATION_ERROR`.",
+        "operationId": "api_02_post_auth_login",
+        "x-api-number": 2,
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Thành công.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Token"
+                },
+                "example": {
+                  "access_token": "eyJhbGciOi...",
+                  "token_type": "Bearer",
+                  "expires_in": 3600
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "description": "INVALID_CREDENTIALS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "INVALID_CREDENTIALS": {
+                    "summary": "INVALID_CREDENTIALS",
+                    "value": {
+                      "error": {
+                        "code": "INVALID_CREDENTIALS",
+                        "message": "Wrong username or password"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "WWW-Authenticate": {
+                "description": "Bearer",
+                "schema": {
+                  "type": "string"
+                },
+                "example": "Bearer"
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              },
+              "example": {
+                "username": "an_nguyen",
+                "password": "matkhau123"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/me": {
+      "get": {
+        "tags": [
+          "03. Thông tin tài khoản"
+        ],
+        "description": "Xem thông tin của tài khoản đang đăng nhập. API yêu cầu Bearer token hợp lệ.\n\nHệ thống lấy mã người dùng từ token để tìm tài khoản, thay vì nhận mã tài khoản do người gọi truyền vào. Kết quả `200 OK` gồm `id`, `username` và `created_at`. API chỉ đọc thông tin và không trả mật khẩu, giá trị băm hoặc số dư ví.\n\nToken thiếu, sai hoặc hết hạn trả `401 UNAUTHORIZED`. Nếu tài khoản trong token không còn tồn tại, API trả `404 USER_NOT_FOUND`.",
+        "operationId": "api_03_get_users_me",
+        "x-api-number": 3,
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                },
+                "example": {
+                  "id": 7,
+                  "username": "an_nguyen",
+                  "created_at": "2026-10-20T12:00:00Z"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "404": {
+            "description": "USER_NOT_FOUND",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "USER_NOT_FOUND": {
+                    "summary": "USER_NOT_FOUND",
+                    "value": {
+                      "error": {
+                        "code": "USER_NOT_FOUND",
+                        "message": "User does not exist"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auctions": {
+      "post": {
+        "tags": [
+          "04. Tạo phiên đấu giá"
+        ],
+        "description": "Tạo phiên đấu giá cho sản phẩm. Người đang đăng nhập được ghi nhận là người bán của phiên mới.\n\n### Thông tin cần cung cấp\n- Tiêu đề `title`: 3–120 ký tự.\n- Danh mục `category`: 1–50 ký tự.\n- Giá khởi điểm `starting_price`: ít nhất 1.000 VND.\n- Thời gian kết thúc `end_time`.\n\n### Thông tin có thể bổ sung\n- Mô tả `description`: tối đa 2.000 ký tự.\n- Bước tăng giá `min_increment`: ít nhất 1.000 VND, mặc định 1.000 VND nếu bỏ qua.\n- Giá bảo lưu `reserve_price`: có thể bỏ trống; nếu có phải ít nhất bằng giá khởi điểm. Giá này không hiển thị công khai.\n- Thời gian bắt đầu `start_time`: bỏ qua hoặc gửi null thì dùng thời điểm hiện tại của máy chủ.\n\nThời gian sử dụng UTC. Giờ bắt đầu không được sớm hơn hiện tại quá 5 giây hoặc muộn hơn hiện tại quá 30 ngày. Thời lượng từ lúc bắt đầu đến lúc kết thúc phải nằm trong khoảng 60 giây đến 30 ngày.\n\nKhi tạo thành công, phiên ở trạng thái `OPEN`, giá hiện tại bằng giá khởi điểm, số lượt đặt giá bằng 0 và chưa có người dẫn đầu. API trả `201 Created` với thông tin chi tiết phiên và header `Location: /auctions/{id}`.\n\nThời gian không hợp lệ trả `400 INVALID_TIME_RANGE`; giá bảo lưu thấp hơn giá khởi điểm trả `400 INVALID_PRICE`. Yêu cầu chưa xác thực trả 401; dữ liệu không đúng định dạng hoặc ràng buộc đầu vào trả 422.",
+        "operationId": "api_04_post_auctions",
+        "x-api-number": 4,
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Tạo mới thành công.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuctionDetail"
+                },
+                "example": {
+                  "id": 42,
+                  "seller": {
+                    "id": 7,
+                    "username": "an_nguyen"
+                  },
+                  "title": "Seiko 5 watch, used",
+                  "description": "Still runs well, 1-month warranty",
+                  "category": "watches",
+                  "starting_price": 1000000,
+                  "min_increment": 50000,
+                  "current_price": 1000000,
+                  "bid_count": 0,
+                  "highest_bidder": null,
+                  "has_reserve": true,
+                  "reserve_met": false,
+                  "status": "OPEN",
+                  "phase": "LIVE",
+                  "start_time": "2026-10-20T13:00:00Z",
+                  "end_time": "2026-10-20T14:00:00Z",
+                  "extended_count": 0,
+                  "final_price": null,
+                  "closed_at": null,
+                  "created_at": "2026-10-20T12:55:00Z"
+                }
+              }
+            },
+            "headers": {
+              "Location": {
+                "description": "Đường dẫn phiên mới tạo.",
+                "schema": {
+                  "type": "string"
+                },
+                "example": "/auctions/42"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "400": {
+            "description": "INVALID_TIME_RANGE / INVALID_PRICE",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "INVALID_TIME_RANGE": {
+                    "summary": "INVALID_TIME_RANGE",
+                    "value": {
+                      "error": {
+                        "code": "INVALID_TIME_RANGE",
+                        "message": "Auction times are outside the allowed range"
+                      }
+                    }
+                  },
+                  "INVALID_PRICE": {
+                    "summary": "INVALID_PRICE",
+                    "value": {
+                      "error": {
+                        "code": "INVALID_PRICE",
+                        "message": "Reserve price cannot be below starting price"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAuctionRequest"
+              },
+              "example": {
+                "title": "Seiko 5 watch, used",
+                "description": "Still runs well",
+                "category": "watches",
+                "starting_price": 1000000,
+                "min_increment": 50000,
+                "reserve_price": 1500000,
+                "start_time": null,
+                "end_time": "2026-10-20T14:00:00Z"
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "05. Tra cứu phiên đấu giá"
+        ],
+        "description": "Tìm và xem danh sách phiên đấu giá. Người xem không cần đăng nhập. Các phiên đã xóa không xuất hiện trong kết quả.\n\n### Tìm kiếm và lọc\n- `state=live` (mặc định): phiên đang OPEN và đã bắt đầu nhưng chưa hết giờ.\n- `state=upcoming`: phiên OPEN chưa đến giờ bắt đầu.\n- `state=ended`: phiên đã SOLD, UNSOLD hoặc vẫn OPEN nhưng đã hết giờ.\n- `q`: tìm một phần tiêu đề, không phân biệt chữ hoa và chữ thường.\n- `category`: chỉ lấy phiên có danh mục trùng với giá trị gửi lên.\n- `seller_id`: chỉ lấy phiên của người bán được chỉ định.\n- `min_price`, `max_price`: lọc theo giá hiện tại của phiên.\n\nCác bộ lọc được áp dụng cùng nhau. Tham số `sort` cho phép sắp theo phiên sắp kết thúc (`ending_soon`, mặc định), phiên mới nhất (`newest`), giá tăng dần (`price_asc`) hoặc giá giảm dần (`price_desc`).\n\nAPI trả `200 OK` với danh sách `items` và các thông tin `page`, `size`, `total`. Mỗi phiên gồm mã, tiêu đề, danh mục, người bán, giá hiện tại, số lượt đặt giá, trạng thái và thời gian diễn ra. Mặc định lấy trang 1 với 20 phiên; mỗi trang tối đa 100 phiên. `total` là số phiên phù hợp sau khi lọc, trước khi chia trang. Không tìm thấy phiên phù hợp thì trả danh sách rỗng.\n\nGiá trị state, sort, kiểu dữ liệu hoặc phân trang không hợp lệ trả `422 VALIDATION_ERROR`.",
+        "operationId": "api_05_get_auctions",
+        "x-api-number": 5,
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Thành công.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuctionPage"
+                },
+                "example": {
+                  "items": [
+                    {
+                      "id": 42,
+                      "title": "Seiko 5 watch, used",
+                      "category": "watches",
+                      "seller": {
+                        "id": 7,
+                        "username": "an_nguyen"
+                      },
+                      "current_price": 1100000,
+                      "bid_count": 3,
+                      "status": "OPEN",
+                      "phase": "LIVE",
+                      "start_time": "2026-10-20T13:00:00Z",
+                      "end_time": "2026-10-20T14:00:30Z"
+                    }
+                  ],
+                  "page": 1,
+                  "size": 20,
+                  "total": 134
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        },
+        "parameters": [
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "description": "Trạng thái thời gian của phiên: live, upcoming hoặc ended; mặc định live.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "live",
+                "upcoming",
+                "ended"
+              ],
+              "default": "live"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Tìm một phần tiêu đề, không phân biệt hoa/thường.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "description": "Danh mục khớp chính xác.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "seller_id",
+            "in": "query",
+            "required": false,
+            "description": "Mã người bán.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "min_price",
+            "in": "query",
+            "required": false,
+            "description": "Giá hiện tại tối thiểu.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "description": "Số nguyên VND; không dùng số tiền thập phân."
+            }
+          },
+          {
+            "name": "max_price",
+            "in": "query",
+            "required": false,
+            "description": "Giá hiện tại tối đa.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "description": "Số nguyên VND; không dùng số tiền thập phân."
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "description": "Thứ tự sắp xếp.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ending_soon",
+                "newest",
+                "price_asc",
+                "price_desc"
+              ],
+              "default": "ending_soon"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/Size"
+          }
+        ]
+      }
+    },
+    "/auctions/{id}": {
+      "get": {
+        "tags": [
+          "06. Chi tiết phiên đấu giá"
+        ],
+        "description": "Xem thông tin chi tiết của một phiên đấu giá theo mã phiên. Người xem không cần đăng nhập.\n\nKết quả `200 OK` gồm thông tin sản phẩm, người bán, giá khởi điểm, bước giá, giá hiện tại, số lượt đặt giá, thời gian, trạng thái và số lần gia hạn.\n\n### Cách hiển thị thông tin\n- Khi chưa có lượt đặt giá, giá hiện tại bằng giá khởi điểm và `highest_bidder` là null.\n- Tên người đang dẫn đầu chỉ hiển thị hai ký tự đầu kèm `***`.\n- Giá bảo lưu không được trả về. `has_reserve` cho biết phiên có giá bảo lưu hay không; `reserve_met` cho biết mức giá đã đạt giá bảo lưu chưa và là null nếu không có giá bảo lưu.\n- `phase` được xác định khi trả kết quả: UPCOMING nếu chưa bắt đầu, LIVE nếu đang diễn ra, FINISHED nếu đã hết giờ hoặc đã chốt kết quả.\n- `final_price` và `closed_at` có giá trị sau khi chốt phiên; phiên UNSOLD vẫn có `final_price = null`.\n\nPhiên không tồn tại hoặc đã xóa trả `404 AUCTION_NOT_FOUND`. Mã phiên không phải số nguyên dương trả `422 VALIDATION_ERROR`.",
+        "operationId": "api_06_get_auctions_id",
+        "x-api-number": 6,
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Thành công.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuctionDetail"
+                },
+                "example": {
+                  "id": 42,
+                  "seller": {
+                    "id": 7,
+                    "username": "an_nguyen"
+                  },
+                  "title": "Seiko 5 watch, used",
+                  "description": "Still runs well, 1-month warranty",
+                  "category": "watches",
+                  "starting_price": 1000000,
+                  "min_increment": 50000,
+                  "current_price": 1100000,
+                  "bid_count": 3,
+                  "highest_bidder": "bi***",
+                  "has_reserve": true,
+                  "reserve_met": false,
+                  "status": "OPEN",
+                  "phase": "LIVE",
+                  "start_time": "2026-10-20T13:00:00Z",
+                  "end_time": "2026-10-20T14:00:30Z",
+                  "extended_count": 1,
+                  "final_price": null,
+                  "closed_at": null,
+                  "created_at": "2026-10-20T12:55:00Z"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "404": {
+            "description": "AUCTION_NOT_FOUND",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "AUCTION_NOT_FOUND": {
+                    "summary": "AUCTION_NOT_FOUND",
+                    "value": {
+                      "error": {
+                        "code": "AUCTION_NOT_FOUND",
+                        "message": "Auction not found"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AuctionId"
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "07. Xóa phiên đấu giá"
+        ],
+        "description": "Xóa một phiên đấu giá chưa có lượt đặt giá. Người gọi phải đăng nhập và là người bán của phiên đó.\n\n### Điều kiện được xóa\n- Phiên tồn tại và chưa bị xóa.\n- Chưa có lượt đặt giá (`bid_count = 0`).\n- Phiên vẫn ở trạng thái OPEN và chưa đến giờ kết thúc.\n\nHệ thống khóa bản ghi phiên trước khi kiểm tra để tránh xóa đồng thời với một lượt đặt giá vừa được chấp nhận. Khi đủ điều kiện, hệ thống ghi thời điểm xóa vào `deleted_at` và lưu thay đổi. Đây là xóa mềm: dữ liệu vẫn còn trong cơ sở dữ liệu nhưng bị ẩn khỏi mọi danh sách và được coi là không tồn tại khi truy cập. Vì phiên chưa có bid nên không có tiền giữ cần giải phóng.\n\nXóa thành công trả `204 No Content`, không có body. Các trường hợp không được xóa:\n- `404 AUCTION_NOT_FOUND`: phiên không tồn tại hoặc đã bị xóa.\n- `403 NOT_OWNER`: người gọi không phải người bán.\n- `409 AUCTION_HAS_BIDS`: phiên đã có lượt đặt giá.\n- `409 AUCTION_NOT_CANCELLABLE`: phiên không còn OPEN hoặc đã hết giờ.\n\nToken không hợp lệ trả 401; mã phiên không hợp lệ trả 422.",
+        "operationId": "api_07_delete_auctions_id",
+        "x-api-number": 7,
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Xóa mềm thành công; không có body."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "404": {
+            "description": "AUCTION_NOT_FOUND",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "AUCTION_NOT_FOUND": {
+                    "summary": "AUCTION_NOT_FOUND",
+                    "value": {
+                      "error": {
+                        "code": "AUCTION_NOT_FOUND",
+                        "message": "Auction not found"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "NOT_OWNER",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "NOT_OWNER": {
+                    "summary": "NOT_OWNER",
+                    "value": {
+                      "error": {
+                        "code": "NOT_OWNER",
+                        "message": "You are not the owner of this auction"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "AUCTION_HAS_BIDS / AUCTION_NOT_CANCELLABLE",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "AUCTION_HAS_BIDS": {
+                    "summary": "AUCTION_HAS_BIDS",
+                    "value": {
+                      "error": {
+                        "code": "AUCTION_HAS_BIDS",
+                        "message": "Cannot delete an auction that has bids"
+                      }
+                    }
+                  },
+                  "AUCTION_NOT_CANCELLABLE": {
+                    "summary": "AUCTION_NOT_CANCELLABLE",
+                    "value": {
+                      "error": {
+                        "code": "AUCTION_NOT_CANCELLABLE",
+                        "message": "Only open auctions can be deleted"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AuctionId"
+          }
+        ]
+      }
+    },
+    "/auctions/{id}/bids": {
+      "post": {
+        "tags": [
+          "08. Đặt giá"
+        ],
+        "description": "Đặt một mức giá mới cho phiên đấu giá. Người dùng phải đăng nhập; danh tính người đặt được lấy từ token. Body chỉ cần số tiền `amount` dạng số nguyên VND.\n\n### Điều kiện chấp nhận lượt đặt giá\nHệ thống kiểm tra theo thứ tự:\n1. Khóa bản ghi phiên. Phiên không tồn tại hoặc đã xóa trả `404 AUCTION_NOT_FOUND`.\n2. Phiên phải đang OPEN và chưa hết giờ; nếu không, trả `409 AUCTION_NOT_ACTIVE`.\n3. Phiên phải đến giờ bắt đầu; nếu chưa đến, trả `409 AUCTION_NOT_STARTED`.\n4. Người đặt không được là người bán của phiên; vi phạm trả `403 SELLER_CANNOT_BID`.\n5. Người đang dẫn đầu không được tự nâng giá; vi phạm trả `409 ALREADY_HIGHEST_BIDDER`.\n6. Bid đầu ít nhất bằng giá khởi điểm. Bid tiếp theo ít nhất bằng giá hiện tại cộng bước giá. Giá thấp hơn mức này trả `400 BID_TOO_LOW`, kèm mức tối thiểu trong `details.min_required`.\n7. Khóa các ví liên quan theo mã người dùng tăng dần. Người đặt phải đủ tiền khả dụng (`balance − held`) cho toàn bộ số tiền bid. Không đủ trả `400 INSUFFICIENT_FUNDS`, kèm tiền khả dụng trong `details.available`.\n\n### Sau khi chấp nhận\nHệ thống tạo bid, tăng tiền tạm giữ của người đặt mới bằng `amount` và ghi giao dịch ví `BID_HOLD`. Nếu có người dẫn đầu trước đó, hệ thống giải phóng đúng khoản tiền bằng giá dẫn đầu cũ của phiên, ghi `BID_RELEASE` gắn với bid cũ. Tiền giữ cho các phiên khác được giữ nguyên. Việc giữ và nhả tiền không làm thay đổi tổng số dư `balance`.\n\nPhiên được cập nhật giá, mã bid và người dẫn đầu mới; số lượt đặt giá tăng thêm 1.\n\n### Đặt giá sát giờ kết thúc\nNếu thời gian còn lại không quá 60 giây, giờ kết thúc được điều chỉnh thành thời điểm xử lý cộng 60 giây, nhưng không được sớm hơn giờ kết thúc cũ. Mỗi lần kích hoạt, `extended_count` tăng thêm 1 và response có `extended = true`.\n\nMọi điều kiện được kiểm tra trước khi thay đổi dữ liệu. Bid, ví, lịch sử giao dịch và phiên được lưu trong cùng một transaction, commit một lần. Nếu có lỗi thì toàn bộ thay đổi được hoàn tác.\n\nThành công trả `201 Created` gồm bid mới, giá và số bid của phiên, giờ kết thúc sau cập nhật, cờ gia hạn và thông tin ví người đặt. Token không hợp lệ trả 401; body hoặc mã phiên sai định dạng trả 422.",
+        "operationId": "api_08_post_auctions_id_bids",
+        "x-api-number": 8,
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Tạo mới thành công.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaceBidResponse"
+                },
+                "example": {
+                  "bid": {
+                    "id": 311,
+                    "auction_id": 42,
+                    "amount": 1100000,
+                    "created_at": "2026-10-20T13:59:30Z"
+                  },
+                  "auction": {
+                    "current_price": 1100000,
+                    "bid_count": 3,
+                    "end_time": "2026-10-20T14:00:30Z",
+                    "extended": true
+                  },
+                  "wallet": {
+                    "balance": 5000000,
+                    "held": 1100000,
+                    "available": 3900000
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "404": {
+            "description": "AUCTION_NOT_FOUND",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "AUCTION_NOT_FOUND": {
+                    "summary": "AUCTION_NOT_FOUND",
+                    "value": {
+                      "error": {
+                        "code": "AUCTION_NOT_FOUND",
+                        "message": "Auction not found"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "SELLER_CANNOT_BID",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "SELLER_CANNOT_BID": {
+                    "summary": "SELLER_CANNOT_BID",
+                    "value": {
+                      "error": {
+                        "code": "SELLER_CANNOT_BID",
+                        "message": "Seller cannot bid"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "AUCTION_NOT_ACTIVE / AUCTION_NOT_STARTED / ALREADY_HIGHEST_BIDDER",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "AUCTION_NOT_ACTIVE": {
+                    "summary": "AUCTION_NOT_ACTIVE",
+                    "value": {
+                      "error": {
+                        "code": "AUCTION_NOT_ACTIVE",
+                        "message": "Auction is not active"
+                      }
+                    }
+                  },
+                  "AUCTION_NOT_STARTED": {
+                    "summary": "AUCTION_NOT_STARTED",
+                    "value": {
+                      "error": {
+                        "code": "AUCTION_NOT_STARTED",
+                        "message": "Auction has not started"
+                      }
+                    }
+                  },
+                  "ALREADY_HIGHEST_BIDDER": {
+                    "summary": "ALREADY_HIGHEST_BIDDER",
+                    "value": {
+                      "error": {
+                        "code": "ALREADY_HIGHEST_BIDDER",
+                        "message": "You are already leading"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "BID_TOO_LOW / INSUFFICIENT_FUNDS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "BID_TOO_LOW": {
+                    "summary": "BID_TOO_LOW",
+                    "value": {
+                      "error": {
+                        "code": "BID_TOO_LOW",
+                        "message": "Bid is below the minimum",
+                        "details": {
+                          "min_required": 1150000
+                        }
+                      }
+                    }
+                  },
+                  "INSUFFICIENT_FUNDS": {
+                    "summary": "INSUFFICIENT_FUNDS",
+                    "value": {
+                      "error": {
+                        "code": "INSUFFICIENT_FUNDS",
+                        "message": "Not enough available money",
+                        "details": {
+                          "available": 3900000
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AuctionId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BidRequest"
+              },
+              "example": {
+                "amount": 1100000
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "09. Lịch sử đặt giá"
+        ],
+        "description": "Xem các lượt đặt giá đã được chấp nhận trong một phiên, từ mới nhất đến cũ nhất. Người xem không cần đăng nhập.\n\nMỗi kết quả gồm mã bid, số tiền, thời điểm đặt và tên người đặt đã che theo dạng hai ký tự đầu cộng `***`. API không cung cấp tên đầy đủ hoặc thông tin ví của người tham gia. Chỉ trả bid thuộc phiên được yêu cầu; phiên phải tồn tại và chưa bị xóa.\n\nKết quả `200 OK` có `items`, `page`, `size` và `total`. Mặc định là trang 1, mỗi trang 20 lượt, tối đa 100 lượt một trang. `total` là tổng số bid của phiên trước khi phân trang. Phiên chưa có bid trả `items = []` và `total = 0`.\n\nAPI chỉ đọc dữ liệu, không khóa bản ghi và không tạo lượt đặt giá. Phiên không tồn tại hoặc đã xóa trả `404 AUCTION_NOT_FOUND`; mã phiên hoặc phân trang không hợp lệ trả `422 VALIDATION_ERROR`.",
+        "operationId": "api_09_get_auctions_id_bids",
+        "x-api-number": 9,
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Thành công.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BidHistoryPage"
+                },
+                "example": {
+                  "items": [
+                    {
+                      "id": 311,
+                      "bidder": "bi***",
+                      "amount": 1100000,
+                      "created_at": "2026-10-20T13:59:30Z"
+                    }
+                  ],
+                  "page": 1,
+                  "size": 20,
+                  "total": 3
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "404": {
+            "description": "AUCTION_NOT_FOUND",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "AUCTION_NOT_FOUND": {
+                    "summary": "AUCTION_NOT_FOUND",
+                    "value": {
+                      "error": {
+                        "code": "AUCTION_NOT_FOUND",
+                        "message": "Auction not found"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AuctionId"
+          },
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/Size"
+          }
+        ]
+      }
+    },
+    "/users/me/auctions": {
+      "get": {
+        "tags": [
+          "10. Phiên đấu giá đã tạo"
+        ],
+        "description": "Xem các phiên đấu giá do người đang đăng nhập tạo. Danh sách chỉ gồm phiên của chính người dùng và chưa bị xóa, sắp theo mã phiên giảm dần.\n\nCó thể lọc bằng `status=OPEN`, `SOLD` hoặc `UNSOLD`. Bỏ qua tham số này để xem tất cả trạng thái.\n\nMỗi phiên có thông tin tóm tắt như danh sách công khai, kèm giá khởi điểm, bước giá, giá bảo lưu, giá bán cuối cùng, tên người thắng đã che và thời điểm chốt. Người bán được xem giá bảo lưu của mình tại API này. Các thông tin kết quả có thể null nếu chưa chốt hoặc không có giá trị tương ứng.\n\nAPI trả `200 OK` với `items`, `page`, `size`, `total`. Bộ lọc được áp dụng trước khi tính tổng và phân trang; không có phiên phù hợp thì trả danh sách rỗng.\n\nToken thiếu, sai hoặc hết hạn trả `401 UNAUTHORIZED`. Trạng thái lọc hoặc phân trang không hợp lệ trả `422 VALIDATION_ERROR`.",
+        "operationId": "api_10_get_users_me_auctions",
+        "x-api-number": 10,
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyAuctionPage"
+                },
+                "example": {
+                  "items": [
+                    {
+                      "id": 42,
+                      "title": "Seiko 5 watch, used",
+                      "category": "watches",
+                      "seller": {
+                        "id": 7,
+                        "username": "an_nguyen"
+                      },
+                      "current_price": 1600000,
+                      "bid_count": 5,
+                      "status": "SOLD",
+                      "phase": "FINISHED",
+                      "start_time": "2026-10-20T13:00:00Z",
+                      "end_time": "2026-10-20T14:00:30Z",
+                      "starting_price": 1000000,
+                      "min_increment": 50000,
+                      "reserve_price": 1500000,
+                      "final_price": 1600000,
+                      "winner": "bi***",
+                      "closed_at": "2026-10-20T14:00:33Z"
+                    }
+                  ],
+                  "page": 1,
+                  "size": 20,
+                  "total": 1
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        },
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "Bỏ qua để lấy mọi trạng thái; không gửi chuỗi rỗng.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "OPEN",
+                "SOLD",
+                "UNSOLD"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/Size"
+          }
+        ]
+      }
+    },
+    "/users/me/bids": {
+      "get": {
+        "tags": [
+          "11. Phiên đấu giá đã tham gia"
+        ],
+        "description": "Xem các phiên người đang đăng nhập từng đặt giá để theo dõi mức giá và kết quả tham gia của bản thân.\n\nMỗi phiên chỉ xuất hiện một lần, kể cả khi người dùng đã đặt nhiều bid. `my_highest_amount` là mức giá cao nhất của chính người dùng trong phiên, có thể thấp hơn giá đang dẫn. Phiên đã xóa bị loại khỏi danh sách. Kết quả được sắp theo thời gian kết thúc giảm dần.\n\n### Trạng thái tham gia\n| Trạng thái | Ý nghĩa |\n| --- | --- |\n| LEADING | Phiên OPEN và người dùng đang dẫn đầu. |\n| OUTBID | Phiên OPEN nhưng người khác đang dẫn đầu. |\n| WON | Phiên SOLD và người dùng là người thắng. |\n| LOST | Phiên SOLD và người thắng là người khác. |\n| NO_SALE | Phiên UNSOLD, không bán được. |\n\nTham số `status` dùng để lọc một trong năm trạng thái trên. Bỏ qua tham số để xem tất cả. Một phiên OPEN đã hết giờ có `phase = FINISHED`, nhưng trạng thái tham gia vẫn là LEADING hoặc OUTBID cho đến khi kết quả chốt phiên được ghi nhận.\n\nAPI trả `200 OK`; mỗi item gồm thông tin phiên (`id`, `title`, `status`, `phase`, `current_price`, `end_time`), `my_highest_amount` và `my_status`. Kết quả có `page`, `size`, `total`; lọc trước khi đếm và phân trang. Không có kết quả phù hợp thì trả danh sách rỗng. Đây là thao tác chỉ đọc, không khóa bản ghi.\n\nToken không hợp lệ trả `401 UNAUTHORIZED`; trạng thái lọc hoặc phân trang không hợp lệ trả `422 VALIDATION_ERROR`.",
+        "operationId": "api_11_get_users_me_bids",
+        "x-api-number": 11,
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyBidPage"
+                },
+                "example": {
+                  "items": [
+                    {
+                      "auction": {
+                        "id": 42,
+                        "title": "Seiko 5 watch, used",
+                        "status": "OPEN",
+                        "phase": "LIVE",
+                        "current_price": 1150000,
+                        "end_time": "2026-10-20T14:00:30Z"
+                      },
+                      "my_highest_amount": 1100000,
+                      "my_status": "OUTBID"
+                    }
+                  ],
+                  "page": 1,
+                  "size": 20,
+                  "total": 5
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        },
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "Bỏ qua để lấy tất cả; chỉ một trong năm trạng thái tham gia.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "LEADING",
+                "OUTBID",
+                "WON",
+                "LOST",
+                "NO_SALE"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/Size"
+          }
+        ]
+      }
+    },
+    "/wallet": {
+      "get": {
+        "tags": [
+          "12. Thông tin ví"
+        ],
+        "description": "Xem số dư và số tiền còn có thể dùng để đặt giá. Người dùng phải đăng nhập và chỉ được xem ví của mình.\n\nAPI trả `200 OK` với ba giá trị, tính bằng VND:\n- `balance`: tổng số dư trong ví.\n- `held`: số tiền đang tạm giữ cho các phiên người dùng đang dẫn đầu.\n- `available`: tiền khả dụng, bằng `balance − held`.\n\nSố dư không âm; tiền giữ không âm và không vượt tổng số dư. Mã chủ ví được lấy từ token. API chỉ đọc thông tin, không làm thay đổi tiền trong ví.\n\nToken thiếu, sai hoặc hết hạn trả `401 UNAUTHORIZED`.",
+        "operationId": "api_12_get_wallet",
+        "x-api-number": 12,
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Wallet"
+                },
+                "example": {
+                  "balance": 5000000,
+                  "held": 1100000,
+                  "available": 3900000
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        }
+      }
+    },
+    "/wallet/topups": {
+      "post": {
+        "tags": [
+          "13. Nạp tiền mô phỏng"
+        ],
+        "description": "Nạp tiền mô phỏng vào ví nội bộ để có tiền tham gia đấu giá. Người dùng phải đăng nhập; tiền được nạp vào ví của tài khoản trong token.\n\nBody chứa `amount` là số nguyên VND. Mỗi lần nạp từ 10.000 đến 50.000.000 VND; ngoài khoảng này trả `400 INVALID_AMOUNT`.\n\nSau khi kiểm tra số tiền, hệ thống khóa ví, cộng `amount` vào `balance` và ghi giao dịch `TOPUP`. Tiền tạm giữ không đổi, nên tiền khả dụng tăng đúng bằng số tiền nạp. Bản ghi giao dịch có `balance_delta = amount`, `held_delta = 0` và số dư sau khi nạp. Cập nhật ví và lịch sử được lưu cùng một transaction; nếu lỗi thì hoàn tác cả hai.\n\nThành công trả `201 Created` với mã giao dịch, số tiền nạp và thông tin ví sau cập nhật. Token không hợp lệ trả `401 UNAUTHORIZED`; body thiếu trường hoặc sai kiểu trả `422 VALIDATION_ERROR`.",
+        "operationId": "api_13_post_wallet_topups",
+        "x-api-number": 13,
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Tạo mới thành công.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TopUpResponse"
+                },
+                "example": {
+                  "transaction_id": 90,
+                  "amount": 2000000,
+                  "wallet": {
+                    "balance": 7000000,
+                    "held": 1100000,
+                    "available": 5900000
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "400": {
+            "description": "INVALID_AMOUNT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "INVALID_AMOUNT": {
+                    "summary": "INVALID_AMOUNT",
+                    "value": {
+                      "error": {
+                        "code": "INVALID_AMOUNT",
+                        "message": "Top-up amount must be between 10000 and 50000000"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TopUpRequest"
+              },
+              "example": {
+                "amount": 2000000
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wallet/transactions": {
+      "get": {
+        "tags": [
+          "14. Lịch sử giao dịch ví"
+        ],
+        "description": "Xem lịch sử thay đổi số dư và tiền tạm giữ để đối chiếu hoạt động nạp tiền, đặt giá và thanh toán. Người dùng phải đăng nhập và chỉ được xem lịch sử ví của mình.\n\n### Các loại giao dịch\n| Loại | Thay đổi số dư | Thay đổi tiền tạm giữ |\n| --- | --- | --- |\n| TOPUP | Tăng số tiền nạp. | Không đổi. |\n| BID_HOLD | Không đổi. | Tăng số tiền của bid mới được chấp nhận. |\n| BID_RELEASE | Không đổi. | Giảm khoản tiền được giải phóng. |\n| SETTLEMENT_PAY | Giảm số tiền thanh toán của người thắng. | Giảm cùng số tiền đó. |\n| SETTLEMENT_RECEIVE | Tăng số tiền người bán nhận được. | Không đổi. |\n\nTham số `type` cho phép chọn một loại giao dịch; bỏ qua để xem tất cả. Các bản ghi được sắp theo mã giao dịch giảm dần. Lịch sử chỉ được thêm mới, không sửa hoặc xóa bản ghi cũ.\n\nMỗi bản ghi thể hiện mức thay đổi qua `balance_delta` và `held_delta`, trạng thái sau giao dịch qua `balance_after` và `held_after`, cùng thời điểm tạo. `auction_id` và `bid_id` cho biết phiên hoặc bid liên quan; hai trường này có thể null khi không áp dụng.\n\nAPI trả `200 OK` với `items`, `page`, `size`, `total`. Chỉ đếm các bản ghi thuộc người dùng và phù hợp bộ lọc, sau đó mới phân trang. Token không hợp lệ trả `401 UNAUTHORIZED`; loại giao dịch hoặc phân trang không hợp lệ trả `422 VALIDATION_ERROR`.",
+        "operationId": "api_14_get_wallet_transactions",
+        "x-api-number": 14,
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletTransactionPage"
+                },
+                "example": {
+                  "items": [
+                    {
+                      "id": 120,
+                      "type": "BID_HOLD",
+                      "balance_delta": 0,
+                      "held_delta": 1100000,
+                      "balance_after": 7000000,
+                      "held_after": 1100000,
+                      "auction_id": 42,
+                      "bid_id": 311,
+                      "created_at": "2026-10-20T13:59:30Z"
+                    }
+                  ],
+                  "page": 1,
+                  "size": 20,
+                  "total": 12
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        },
+        "parameters": [
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "description": "Loại giao dịch; bỏ qua để xem tất cả.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "TOPUP",
+                "BID_HOLD",
+                "BID_RELEASE",
+                "SETTLEMENT_PAY",
+                "SETTLEMENT_RECEIVE"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/Size"
+          }
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "15. Trạng thái hệ thống"
+        ],
+        "description": "Kiểm tra dịch vụ có phản hồi và có kết nối được tới cơ sở dữ liệu hay không. API công khai, không cần đăng nhập, body hoặc tham số truy vấn.\n\nHệ thống chạy `SELECT 1` để kiểm tra kết nối, không thay đổi dữ liệu. Kết quả gồm:\n- `200 OK` và `{\"status\":\"ok\",\"db\":\"up\"}` khi truy vấn thành công.\n- `503 Service Unavailable` và `{\"status\":\"degraded\",\"db\":\"down\"}` khi không truy cập được cơ sở dữ liệu.\n\nAPI được dùng để kiểm tra sức khỏe container và xác nhận dịch vụ sẵn sàng trước khi kiểm thử tải. Response 503 trả tình trạng dịch vụ như trên, không dùng object lỗi `error`.",
+        "operationId": "api_15_get_health",
+        "x-api-number": 15,
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Thành công.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthOK"
+                },
+                "example": {
+                  "status": "ok",
+                  "db": "up"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Không truy cập được database. Endpoint này trả object health, không dùng ErrorResponse.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthDown"
+                },
+                "example": {
+                  "status": "degraded",
+                  "db": "down"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT nhận từ POST /auth/login; gửi trong Authorization: Bearer <access_token>. Token hết hạn sau 60 phút. Thiếu, sai hoặc hết hạn trả 401 và WWW-Authenticate: Bearer."
+      }
+    },
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "details": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ]
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "RegisterRequest": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 30,
+            "pattern": "^[A-Za-z0-9_]+$",
+            "description": "Tên đăng nhập được lưu bằng chữ thường, gồm chữ cái a–z, chữ số và dấu gạch dưới; không trùng tài khoản khác."
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "writeOnly": true,
+            "minLength": 8,
+            "maxLength": 72,
+            "description": "8–72 ký tự và tối đa 72 byte UTF-8 theo giới hạn bcrypt."
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ]
+      },
+      "LoginRequest": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "description": "Tên đăng nhập của tài khoản."
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ]
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "username": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601, có timezone UTC; ví dụ 2026-10-20T13:00:00Z."
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "created_at"
+        ]
+      },
+      "Token": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string"
+          },
+          "token_type": {
+            "type": "string",
+            "enum": [
+              "Bearer"
+            ]
+          },
+          "expires_in": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "description": "Số giây token còn hiệu lực, mặc định 3600."
+          }
+        },
+        "required": [
+          "access_token",
+          "token_type",
+          "expires_in"
+        ]
+      },
+      "Seller": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "username"
+        ]
+      },
+      "AuctionSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "title": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "seller": {
+            "$ref": "#/components/schemas/Seller"
+          },
+          "current_price": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Số nguyên VND; không dùng số tiền thập phân."
+          },
+          "bid_count": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "SOLD",
+              "UNSOLD"
+            ]
+          },
+          "phase": {
+            "type": "string",
+            "enum": [
+              "UPCOMING",
+              "LIVE",
+              "FINISHED"
+            ],
+            "description": "Tính khi trả response: UPCOMING nếu OPEN và chưa bắt đầu; LIVE nếu OPEN và đang diễn ra; FINISHED nếu hết giờ hoặc SOLD/UNSOLD. Không lưu phase trong DB."
+          },
+          "start_time": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601, có timezone UTC; ví dụ 2026-10-20T13:00:00Z."
+          },
+          "end_time": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601, có timezone UTC; ví dụ 2026-10-20T13:00:00Z."
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "category",
+          "seller",
+          "current_price",
+          "bid_count",
+          "status",
+          "phase",
+          "start_time",
+          "end_time"
+        ]
+      },
+      "AuctionDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "title": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "seller": {
+            "$ref": "#/components/schemas/Seller"
+          },
+          "current_price": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Số nguyên VND; không dùng số tiền thập phân."
+          },
+          "bid_count": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "SOLD",
+              "UNSOLD"
+            ]
+          },
+          "phase": {
+            "type": "string",
+            "enum": [
+              "UPCOMING",
+              "LIVE",
+              "FINISHED"
+            ],
+            "description": "Tính khi trả response: UPCOMING nếu OPEN và chưa bắt đầu; LIVE nếu OPEN và đang diễn ra; FINISHED nếu hết giờ hoặc SOLD/UNSOLD. Không lưu phase trong DB."
+          },
+          "start_time": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601, có timezone UTC; ví dụ 2026-10-20T13:00:00Z."
+          },
+          "end_time": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601, có timezone UTC; ví dụ 2026-10-20T13:00:00Z."
+          },
+          "description": {
+            "type": "string"
+          },
+          "starting_price": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Số nguyên VND; không dùng số tiền thập phân."
+          },
+          "min_increment": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Số nguyên VND; không dùng số tiền thập phân."
+          },
+          "highest_bidder": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "Hai ký tự đầu username + ***, null nếu chưa có bid."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "has_reserve": {
+            "type": "boolean"
+          },
+          "reserve_met": {
+            "anyOf": [
+              {
+                "type": "boolean",
+                "description": "null nếu không có giá bảo lưu; biểu thị mức giá đặt đã đạt giá bảo lưu hay chưa."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "extended_count": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "final_price": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "format": "int64",
+                "description": "Số nguyên VND; không dùng số tiền thập phân."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "closed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "description": "ISO 8601, có timezone UTC; ví dụ 2026-10-20T13:00:00Z."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601, có timezone UTC; ví dụ 2026-10-20T13:00:00Z."
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "category",
+          "seller",
+          "current_price",
+          "bid_count",
+          "status",
+          "phase",
+          "start_time",
+          "end_time",
+          "description",
+          "starting_price",
+          "min_increment",
+          "highest_bidder",
+          "has_reserve",
+          "reserve_met",
+          "extended_count",
+          "final_price",
+          "closed_at",
+          "created_at"
+        ],
+        "description": "Thông tin chi tiết phiên, dùng khi tạo và xem phiên. Giá bảo lưu không công khai. Trước lượt đặt đầu, giá hiện tại bằng giá khởi điểm và chưa có người dẫn. Giá cuối và thời điểm chốt có giá trị sau khi xử lý kết quả; phiên UNSOLD có giá cuối là null."
+      },
+      "CreateAuctionRequest": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 120
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "category": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "starting_price": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1000
+          },
+          "min_increment": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1000,
+            "default": 1000
+          },
+          "reserve_price": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "format": "int64",
+                "description": "Không thấp hơn starting_price; mặc định null."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "start_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "description": "Bỏ qua/null: thời gian server hiện tại. Không quá 5 giây trong quá khứ hoặc quá 30 ngày trong tương lai."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "end_time": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Giờ kết thúc phải sau giờ bắt đầu từ 60 giây đến 30 ngày."
+          }
+        },
+        "required": [
+          "title",
+          "category",
+          "starting_price",
+          "end_time"
+        ]
+      },
+      "Wallet": {
+        "type": "object",
+        "properties": {
+          "balance": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "held": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "0 ≤ held ≤ balance."
+          },
+          "available": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "balance − held."
+          }
+        },
+        "required": [
+          "balance",
+          "held",
+          "available"
+        ]
+      },
+      "BidRequest": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Số tiền đặt giá, tính bằng VND. Lần đầu ít nhất bằng giá khởi điểm; các lần sau ít nhất bằng giá hiện tại cộng bước giá. Giá thấp hơn trả 400 BID_TOO_LOW."
+          }
+        },
+        "required": [
+          "amount"
+        ]
+      },
+      "Bid": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "auction_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "amount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Số nguyên VND; không dùng số tiền thập phân."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601, có timezone UTC; ví dụ 2026-10-20T13:00:00Z."
+          }
+        },
+        "required": [
+          "id",
+          "auction_id",
+          "amount",
+          "created_at"
+        ]
+      },
+      "BidAuctionUpdate": {
+        "type": "object",
+        "properties": {
+          "current_price": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Số nguyên VND; không dùng số tiền thập phân."
+          },
+          "bid_count": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "end_time": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601, có timezone UTC; ví dụ 2026-10-20T13:00:00Z."
+          },
+          "extended": {
+            "type": "boolean",
+            "description": "Bid này có kích hoạt anti-sniping hay không."
+          }
+        },
+        "required": [
+          "current_price",
+          "bid_count",
+          "end_time",
+          "extended"
+        ]
+      },
+      "PlaceBidResponse": {
+        "type": "object",
+        "properties": {
+          "bid": {
+            "$ref": "#/components/schemas/Bid"
+          },
+          "auction": {
+            "$ref": "#/components/schemas/BidAuctionUpdate"
+          },
+          "wallet": {
+            "$ref": "#/components/schemas/Wallet"
+          }
+        },
+        "required": [
+          "bid",
+          "auction",
+          "wallet"
+        ]
+      },
+      "BidHistoryItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "bidder": {
+            "type": "string",
+            "description": "Tên người đặt đã che: hai ký tự đầu + ***."
+          },
+          "amount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Số nguyên VND; không dùng số tiền thập phân."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601, có timezone UTC; ví dụ 2026-10-20T13:00:00Z."
+          }
+        },
+        "required": [
+          "id",
+          "bidder",
+          "amount",
+          "created_at"
+        ]
+      },
+      "MyAuctionItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "title": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "seller": {
+            "$ref": "#/components/schemas/Seller"
+          },
+          "current_price": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Số nguyên VND; không dùng số tiền thập phân."
+          },
+          "bid_count": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "SOLD",
+              "UNSOLD"
+            ]
+          },
+          "phase": {
+            "type": "string",
+            "enum": [
+              "UPCOMING",
+              "LIVE",
+              "FINISHED"
+            ],
+            "description": "Tính khi trả response: UPCOMING nếu OPEN và chưa bắt đầu; LIVE nếu OPEN và đang diễn ra; FINISHED nếu hết giờ hoặc SOLD/UNSOLD. Không lưu phase trong DB."
+          },
+          "start_time": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601, có timezone UTC; ví dụ 2026-10-20T13:00:00Z."
+          },
+          "end_time": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601, có timezone UTC; ví dụ 2026-10-20T13:00:00Z."
+          },
+          "starting_price": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Số nguyên VND; không dùng số tiền thập phân."
+          },
+          "min_increment": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Số nguyên VND; không dùng số tiền thập phân."
+          },
+          "reserve_price": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "format": "int64",
+                "description": "Số nguyên VND; không dùng số tiền thập phân."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "final_price": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "format": "int64",
+                "description": "Số nguyên VND; không dùng số tiền thập phân."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "winner": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "Username người thắng đã che."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "closed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "description": "ISO 8601, có timezone UTC; ví dụ 2026-10-20T13:00:00Z."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "category",
+          "seller",
+          "current_price",
+          "bid_count",
+          "status",
+          "phase",
+          "start_time",
+          "end_time",
+          "starting_price",
+          "min_increment",
+          "reserve_price",
+          "final_price",
+          "winner",
+          "closed_at"
+        ],
+        "description": "Thông tin phiên dành cho chính người bán, gồm cả giá bảo lưu và kết quả bán."
+      },
+      "MyBidAuction": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "SOLD",
+              "UNSOLD"
+            ]
+          },
+          "phase": {
+            "type": "string",
+            "enum": [
+              "UPCOMING",
+              "LIVE",
+              "FINISHED"
+            ],
+            "description": "Tính khi trả response: UPCOMING nếu OPEN và chưa bắt đầu; LIVE nếu OPEN và đang diễn ra; FINISHED nếu hết giờ hoặc SOLD/UNSOLD. Không lưu phase trong DB."
+          },
+          "current_price": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Số nguyên VND; không dùng số tiền thập phân."
+          },
+          "end_time": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601, có timezone UTC; ví dụ 2026-10-20T13:00:00Z."
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "status",
+          "phase",
+          "current_price",
+          "end_time"
+        ]
+      },
+      "MyBidItem": {
+        "type": "object",
+        "properties": {
+          "auction": {
+            "$ref": "#/components/schemas/MyBidAuction"
+          },
+          "my_highest_amount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Số nguyên VND; không dùng số tiền thập phân."
+          },
+          "my_status": {
+            "type": "string",
+            "enum": [
+              "LEADING",
+              "OUTBID",
+              "WON",
+              "LOST",
+              "NO_SALE"
+            ]
+          }
+        },
+        "required": [
+          "auction",
+          "my_highest_amount",
+          "my_status"
+        ]
+      },
+      "TopUpRequest": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Số tiền nạp mỗi lần từ 10.000 đến 50.000.000 VND. Ngoài khoảng này trả 400 INVALID_AMOUNT."
+          }
+        },
+        "required": [
+          "amount"
+        ]
+      },
+      "TopUpResponse": {
+        "type": "object",
+        "properties": {
+          "transaction_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "amount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Số nguyên VND; không dùng số tiền thập phân."
+          },
+          "wallet": {
+            "$ref": "#/components/schemas/Wallet"
+          }
+        },
+        "required": [
+          "transaction_id",
+          "amount",
+          "wallet"
+        ]
+      },
+      "WalletTransaction": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "TOPUP",
+              "BID_HOLD",
+              "BID_RELEASE",
+              "SETTLEMENT_PAY",
+              "SETTLEMENT_RECEIVE"
+            ]
+          },
+          "balance_delta": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Số nguyên VND; không dùng số tiền thập phân."
+          },
+          "held_delta": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Số nguyên VND; không dùng số tiền thập phân."
+          },
+          "balance_after": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "held_after": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "auction_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "bid_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601, có timezone UTC; ví dụ 2026-10-20T13:00:00Z."
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "balance_delta",
+          "held_delta",
+          "balance_after",
+          "held_after",
+          "auction_id",
+          "bid_id",
+          "created_at"
+        ],
+        "description": "Một bản ghi biến động ví, lưu số tiền thay đổi và số dư sau giao dịch. Lịch sử chỉ thêm mới, không sửa hoặc xóa. Loại giao dịch cho biết tiền được nạp, giữ, giải phóng hoặc thanh toán."
+      },
+      "HealthOK": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok"
+            ]
+          },
+          "db": {
+            "type": "string",
+            "enum": [
+              "up"
+            ]
+          }
+        },
+        "required": [
+          "status",
+          "db"
+        ]
+      },
+      "HealthDown": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "degraded"
+            ]
+          },
+          "db": {
+            "type": "string",
+            "enum": [
+              "down"
+            ]
+          }
+        },
+        "required": [
+          "status",
+          "db"
+        ]
+      },
+      "AuctionPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuctionSummary"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Tổng kết quả sau lọc, trước phân trang."
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "size",
+          "total"
+        ]
+      },
+      "BidHistoryPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BidHistoryItem"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Tổng kết quả sau lọc, trước phân trang."
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "size",
+          "total"
+        ]
+      },
+      "MyAuctionPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MyAuctionItem"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Tổng kết quả sau lọc, trước phân trang."
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "size",
+          "total"
+        ]
+      },
+      "MyBidPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MyBidItem"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Tổng kết quả sau lọc, trước phân trang."
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "size",
+          "total"
+        ]
+      },
+      "WalletTransactionPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WalletTransaction"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Tổng kết quả sau lọc, trước phân trang."
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "size",
+          "total"
+        ]
+      }
+    },
+    "parameters": {
+      "AuctionId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Mã auction nguyên dương. Sai kiểu hoặc không dương trả 422.",
+        "schema": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 1
+        }
+      },
+      "Page": {
+        "name": "page",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 1,
+          "default": 1
+        }
+      },
+      "Size": {
+        "name": "size",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 20
+        }
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "Token thiếu, không hợp lệ hoặc hết hạn.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "examples": {
+              "UNAUTHORIZED": {
+                "summary": "UNAUTHORIZED",
+                "value": {
+                  "error": {
+                    "code": "UNAUTHORIZED",
+                    "message": "Invalid or expired token"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "headers": {
+          "WWW-Authenticate": {
+            "description": "Bearer",
+            "schema": {
+              "type": "string"
+            },
+            "example": "Bearer"
+          }
+        }
+      },
+      "ValidationError": {
+        "description": "Body, path hoặc query không hợp lệ; ID sai kiểu, phân trang sai hoặc enum không hợp lệ.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "examples": {
+              "VALIDATION_ERROR": {
+                "summary": "VALIDATION_ERROR",
+                "value": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "Request validation failed"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
