@@ -1,8 +1,10 @@
 """Interfaces the services layer depends on. infra implements them; main.py wires them in."""
 
+from __future__ import annotations
+
 from collections.abc import Callable
 from datetime import datetime
-from typing import Protocol
+from typing import Protocol, Any
 
 from app.domain.entities import User, Wallet
 
@@ -21,17 +23,51 @@ class WalletRepository(Protocol):
     def add(self, wallet: Wallet) -> None: ...
 
 
+class AuctionRepository(Protocol):
+    def add(self, auction: Any) -> Any: ...
+
+    def get(self, auction_id: int, lock: bool = False) -> Any | None: ...
+
+    def list(
+        self,
+        *,
+        state: str,
+        now: datetime,
+        q: str | None,
+        category: str | None,
+        seller_id: int | None,
+        min_price: int | None,
+        max_price: int | None,
+        sort: str,
+        page: int,
+        size: int,
+    ) -> tuple[list[Any], int]: ...
+
+    def list_for_seller(
+        self,
+        seller_id: int,
+        status: str | None,
+        page: int,
+        size: int,
+    ) -> tuple[list[Any], int]: ...
+
+    def delete(self, auction: Any, deleted_at: datetime) -> None: ...
+
+
 class UnitOfWork(Protocol):
     """One transaction. Leaving the with-block without commit() rolls everything back."""
 
     users: UserRepository
     wallets: WalletRepository
+    auctions: AuctionRepository
 
     def __enter__(self) -> "UnitOfWork": ...
 
     def __exit__(self, exc_type, exc, tb) -> None: ...
 
     def commit(self) -> None: ...
+
+    def read_only(self) -> None: ...
 
 
 UnitOfWorkFactory = Callable[[], UnitOfWork]

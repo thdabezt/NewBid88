@@ -2,7 +2,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.infra.bids_repository import BidsRepository
-from app.infra.repositories import SqlAlchemyUserRepository, SqlAlchemyWalletRepository
+from app.infra.repositories import SqlAlchemyAuctionRepository, SqlAlchemyUserRepository, SqlAlchemyWalletRepository
 
 
 class SqlAlchemyUnitOfWork:
@@ -15,6 +15,7 @@ class SqlAlchemyUnitOfWork:
         self._session = self._session_factory()
         self.users = SqlAlchemyUserRepository(self._session)
         self.wallets = SqlAlchemyWalletRepository(self._session)
+        self.auctions = SqlAlchemyAuctionRepository(self._session)
         self.bids = BidsRepository(self._session)
         return self
 

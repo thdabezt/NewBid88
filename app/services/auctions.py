@@ -1,16 +1,14 @@
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
-from sqlalchemy.orm import Session
-
 from app.config import settings
+from app.domain.ports import UnitOfWork
 from app.domain.errors import ConflictError, DomainError, ForbiddenError, NotFoundError, ValidationError
-from app.infra.db.models import Auction, User
 
 AuctionPhase = Literal["LIVE", "UPCOMING", "FINISHED"]
 AuctionStatus = Literal["OPEN", "SOLD", "UNSOLD"]
 
-def _get_phase(auction: Auction, now: datetime) -> AuctionPhase:
+def _get_phase(auction, now: datetime) -> AuctionPhase:
     if auction.status != "OPEN" or now >= auction.end_time:
         return "FINISHED"
     if now < auction.start_time:
@@ -27,7 +25,7 @@ def _mask_username(username: str | None) -> str | None:
         return None
     return username[:2] + "***"
 
-def _detail(auction: Auction, seller_username: str, leader_username: str | None, now: datetime) -> dict:
+def _detail(auction, seller_username: str, leader_username: str | None, now: datetime) -> dict:
     response = _summary(auction, seller_username, now)
     response.update(
         {
@@ -48,7 +46,7 @@ def _detail(auction: Auction, seller_username: str, leader_username: str | None,
     )
     return response
 
-def _summary(auction: Auction, seller_username: str, now: datetime) -> dict:
+def _summary(auction, seller_username: str, now: datetime) -> dict:
     return {
         "id": auction.id,
         "title": auction.title,
@@ -63,7 +61,7 @@ def _summary(auction: Auction, seller_username: str, now: datetime) -> dict:
         "end_time": auction.end_time,
     }
 
-def _my_auction_detail(auction: Auction, seller_username: str, winner_username: str | None) -> dict:
+def _my_auction_detail(auction, seller_username: str, winner_username: str | None) -> dict:
     response = _summary(auction, seller_username, datetime.now(timezone.utc))
     response.update(
         {
@@ -78,7 +76,7 @@ def _my_auction_detail(auction: Auction, seller_username: str, winner_username: 
     return response
 
 def create_auction(
-    db: Session,
+    uow: UnitOfWork,
     seller_id: int,
     *,
     title: str,
@@ -112,35 +110,32 @@ def create_auction(
     ):
         raise DomainError("INVALID_TIME_RANGE", "Auction times are outside the allowed range")
     
-    seller = db.get(User, seller_id)
-    if seller is None:
-        raise NotFoundError("USER_NOT_FOUND", "User not found")
-    
-    
-    auction = Auction(
-        seller_id=seller_id,
-        title=title,
-        description=description or "",
-        category=category,
-        starting_price=starting_price,
-        min_increment=min_increment,
-        reserve_price=reserve_price,
-        current_price=starting_price,
-        bid_count=0,
-        start_time=starts,
-        end_time=ends,
-        extended_count=0,
-        status="OPEN",
-    )
-    db.add(auction)
-    db.commit()
-    db.refresh(auction)
-
-
-    return _detail(auction, seller.username, None, datetime.now(timezone.utc))
+    with uow:
+        seller = uow.users.get(seller_id)
+        if seller is None:
+            raise NotFoundError("USER_NOT_FOUND", "User not found")
+        auction = uow.auctions.add(
+            {
+                "seller_id": seller_id,
+                "title": title,
+                "description": description or "",
+                "category": category,
+                "starting_price": starting_price,
+                "min_increment": min_increment,
+                "reserve_price": reserve_price,
+                "current_price": starting_price,
+                "bid_count": 0,
+                "start_time": starts,
+                "end_time": ends,
+                "extended_count": 0,
+                "status": "OPEN",
+            }
+        )
+        uow.commit()
+        return _detail(auction, seller.username, None, datetime.now(timezone.utc))
 
 def list_auctions(
-    db: Session,
+    uow: UnitOfWork,
     *,
     state: AuctionPhase = "LIVE",
     q: str | None = None,
@@ -160,89 +155,70 @@ def list_auctions(
         raise ValidationError("INVALID_PRICE_RANGE", "Minimum price cannot exceed maximum price")
 
     now = datetime.now(timezone.utc)
-    query = db.query(Auction).filter(Auction.deleted_at.is_(None))
-
-    if state == "UPCOMING":
-        query = query.filter(Auction.status == "OPEN", Auction.start_time > now)
-    elif state == "FINISHED":
-        query = query.filter(Auction.end_time <= now)
-    else:
-        query = query.filter(
-            Auction.status == "OPEN",
-            Auction.start_time <= now,
-            Auction.end_time > now,
-        )
-
-    if q:
-        query = query.filter(Auction.title.ilike(f"%{q}%"))
-    if category:
-        query = query.filter(Auction.category == category)
-    if seller_id is not None:
-        query = query.filter(Auction.seller_id == seller_id)
-    if min_price is not None:
-        query = query.filter(Auction.current_price >= min_price)
-    if max_price is not None:
-        query = query.filter(Auction.current_price <= max_price)
-
-    total = query.count()
-
-    if sort == "ending_soon":
-        ordered_query = query.order_by(Auction.end_time.asc(), Auction.id.asc())
-    elif sort == "newest":
-        ordered_query = query.order_by(Auction.start_time.desc(), Auction.id.desc())
-    elif sort == "price_asc":
-        ordered_query = query.order_by(Auction.current_price.asc(), Auction.id.asc())
-    elif sort == "price_desc":
-        ordered_query = query.order_by(Auction.current_price.desc(), Auction.id.desc())
-    else:
+    if sort not in {"ending_soon", "newest", "price_asc", "price_desc"}:
         raise ValidationError("INVALID_SORT", "Unsupported auction sort order")
 
-    auctions = ordered_query.offset((page - 1) * size).limit(size).all()
-    seller_ids = {auction.seller_id for auction in auctions}
-    sellers = db.query(User).filter(User.id.in_(seller_ids)).all() if seller_ids else []
-    seller_map = {seller.id: seller.username for seller in sellers}
+    with uow:
+        uow.read_only()
+        auctions, total = uow.auctions.list(
+            state=state,
+            now=now,
+            q=q,
+            category=category,
+            seller_id=seller_id,
+            min_price=min_price,
+            max_price=max_price,
+            sort=sort,
+            page=page,
+            size=size,
+        )
+        seller_ids = {auction.seller_id for auction in auctions}
+        sellers = {
+            seller_id: uow.users.get(seller_id)
+            for seller_id in seller_ids
+        }
+        return [
+            _summary(auction, sellers[auction.seller_id].username, now)
+            for auction in auctions
+        ], total
+    
+def get_auction(uow: UnitOfWork, auction_id: int) -> dict:
+    with uow:
+        uow.read_only()
+        auction = uow.auctions.get(auction_id)
+        if auction is None:
+            raise NotFoundError("AUCTION_NOT_FOUND", "Auction not found")
+        seller = uow.users.get(auction.seller_id)
+        if seller is None:
+            raise NotFoundError("AUCTION_NOT_FOUND", "Seller not found")
+        leader = (
+            uow.users.get(auction.highest_bidder_id)
+            if auction.highest_bidder_id
+            else None
+        )
+        return _detail(
+            auction,
+            seller.username,
+            leader.username if leader else None,
+            datetime.now(timezone.utc),
+        )
 
-    return [
-        _summary(auction, seller_map.get(auction.seller_id, ""), now) for auction in auctions
-    ], total
-    
-def get_auction(db: Session, auction_id: int) -> dict:
-    auction = db.get(Auction, auction_id)
-    if not auction or auction.deleted_at is not None:
-        raise NotFoundError("AUCTION_NOT_FOUND", "Auction not found")
-    
-    seller = db.get(User, auction.seller_id)
-    if not seller:
-        raise NotFoundError("AUCTION_NOT_FOUND", "Seller not found")
-    
-    leader_username = None
-    if auction.highest_bidder_id:
-        leader = db.get(User, auction.highest_bidder_id)
-        leader_username = leader.username if leader else None
-
-    return _detail(auction, seller.username, leader_username, datetime.now(timezone.utc))
-
-def delete_auction(db: Session, auction_id: int, user_id: int) -> None:
-    auction = (
-        db.query(Auction)
-        .filter(Auction.id == auction_id)
-        .with_for_update()
-        .first()
-    )
-    if not auction or auction.deleted_at is not None:
-        raise NotFoundError("AUCTION_NOT_FOUND", "Auction not found")
-    if auction.seller_id != user_id:
-        raise ForbiddenError("NOT_OWNER", "You are not the owner of this auction")
-    if auction.bid_count > 0:
-        raise ConflictError("AUCTION_HAS_BIDS", "Cannot delete an auction that has bids")
-    if auction.status != "OPEN" or datetime.now(timezone.utc) >= auction.end_time:
-        raise ConflictError("AUCTION_NOT_CANCELLABLE", "Only open auctions can be deleted")
-    
-    auction.deleted_at = datetime.now(timezone.utc)
-    db.commit()
+def delete_auction(uow: UnitOfWork, auction_id: int, user_id: int) -> None:
+    with uow:
+        auction = uow.auctions.get(auction_id, lock=True)
+        if auction is None:
+            raise NotFoundError("AUCTION_NOT_FOUND", "Auction not found")
+        if auction.seller_id != user_id:
+            raise ForbiddenError("NOT_OWNER", "You are not the owner of this auction")
+        if auction.bid_count > 0:
+            raise ConflictError("AUCTION_HAS_BIDS", "Cannot delete an auction that has bids")
+        if auction.status != "OPEN" or datetime.now(timezone.utc) >= auction.end_time:
+            raise ConflictError("AUCTION_NOT_CANCELLABLE", "Only open auctions can be deleted")
+        uow.auctions.delete(auction, datetime.now(timezone.utc))
+        uow.commit()
 
 def get_my_auctions(
-    db: Session,
+    uow: UnitOfWork,
     user_id: int,
     *,
     status: AuctionStatus | None = None,
@@ -254,39 +230,25 @@ def get_my_auctions(
     if size < 1 or size > 100:
         raise ValidationError("INVALID_PAGE_SIZE", "Page size must be between 1 and 100")
 
-    seller = db.get(User, user_id)
-    if seller is None:
-        raise NotFoundError("USER_NOT_FOUND", "User not found")
-
-    query = db.query(Auction).filter(
-        Auction.seller_id == user_id,
-        Auction.deleted_at.is_(None),
-    )
-    if status is not None:
-        query = query.filter(Auction.status == status)
-
-    total = query.count()
-    auctions = (
-        query
-        .order_by(Auction.id.desc())
-        .offset((page - 1) * size)
-        .limit(size)
-        .all()
-    )
-
-    winner_ids = {
-        auction.winner_id
-        for auction in auctions
-        if auction.winner_id is not None
-    }
-    winners = db.query(User).filter(User.id.in_(winner_ids)).all() if winner_ids else []
-    winner_map = {winner.id: winner.username for winner in winners}
-
-    return [
-        _my_auction_detail(
-            auction,
-            seller.username,
-            winner_map.get(auction.winner_id),
-        )
-        for auction in auctions
-    ], total
+    with uow:
+        uow.read_only()
+        seller = uow.users.get(user_id)
+        if seller is None:
+            raise NotFoundError("USER_NOT_FOUND", "User not found")
+        auctions, total = uow.auctions.list_for_seller(user_id, status, page, size)
+        winner_map = {
+            auction.winner_id: uow.users.get(auction.winner_id)
+            for auction in auctions
+            if auction.winner_id is not None
+        }
+        return [
+            _my_auction_detail(
+                auction,
+                seller.username,
+                winner.username if winner else None,
+            )
+            for auction, winner in (
+                (auction, winner_map.get(auction.winner_id))
+                for auction in auctions
+            )
+        ], total
