@@ -1,7 +1,7 @@
 from typing import Literal, Annotated
 from fastapi import APIRouter, Query, Response, status, Path
 
-from app.api.deps import CurrentUserId, DbSession
+from app.api.deps import CurrentUserId, Uow
 from app.api.schemas.auctions import (
     CreateAuctionRequest,
     AuctionDetailResponse,
@@ -21,10 +21,10 @@ def create_auction_endpoint(
     request: CreateAuctionRequest,
     response: Response,
     user_id: CurrentUserId,
-    db: DbSession,
+    uow: Uow,
 ) -> AuctionDetailResponse:
     auction = create_auction(
-        db,
+        uow,
         user_id,
         title=request.title,
         description=request.description,
@@ -40,7 +40,7 @@ def create_auction_endpoint(
 
 @router.get("/auctions", response_model=AuctionListResponse)
 def browse_auctions(
-    db: DbSession,
+    uow: Uow,
     state: Annotated[
         Literal["upcoming", "live", "finished"],
         Query(description="Filter auctions by state"),
@@ -79,7 +79,7 @@ def browse_auctions(
     ] = 20,
 ) -> AuctionListResponse:
     auctions, total = list_auctions(
-        db,
+        uow,
         state=state.upper(),
         q=q,
         category=category,
@@ -103,9 +103,9 @@ def read_auction(
         int,
         Path(ge=1),
     ],
-    db: DbSession,
+    uow: Uow,
 ) -> AuctionDetailResponse:
-    return AuctionDetailResponse(**get_auction(db, auction_id))
+    return AuctionDetailResponse(**get_auction(uow, auction_id))
 
 @router.delete("/auctions/{auction_id}", status_code=status.HTTP_204_NO_CONTENT)
 def remove_auction(
@@ -114,7 +114,7 @@ def remove_auction(
         Path(ge=1),
     ],
     user_id: CurrentUserId,
-    db: DbSession,
+    uow: Uow,
 ) -> None:
-    delete_auction(db, auction_id, user_id)
+    delete_auction(uow, auction_id, user_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

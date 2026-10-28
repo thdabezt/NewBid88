@@ -5,14 +5,16 @@ from datetime import UTC, datetime, timedelta
 from copy import deepcopy
 from types import SimpleNamespace
 
-from app.domain.entities import User, Wallet
-from app.domain.errors import UsernameTaken
+from app.domain.entities import Auction, User, Wallet, WalletTransaction
+from app.domain.errors import NotFoundError, UsernameTaken
 
 
 class InMemoryDb:
     def __init__(self) -> None:
         self.users: dict[int, User] = {}
         self.wallets: dict[int, Wallet] = {}
+        self.auctions: dict[int, Auction] = {}
+        self.transactions: list[WalletTransaction] = []
 
 
 class FakeUserRepository:
@@ -32,13 +34,117 @@ class FakeUserRepository:
     def get_by_username(self, username: str) -> User | None:
         return next((row for row in self.rows.values() if row.username == username), None)
 
+    def get_many(self, ids: list[int]) -> dict[int, User]:
+        return {id: self.rows[id] for id in ids if id in self.rows}
+
 
 class FakeWalletRepository:
-    def __init__(self, rows: dict[int, Wallet]) -> None:
+    def __init__(self, rows: dict[int, Wallet], transactions: list[WalletTransaction]) -> None:
         self.rows = rows
+        self.transactions = transactions
 
     def add(self, wallet: Wallet) -> None:
         self.rows[wallet.user_id] = wallet
+
+    def get(self, user_id: int) -> Wallet | None:
+        return self.rows.get(user_id)
+
+    def credit(self, user_id: int, amount: int, now: datetime) -> tuple[WalletTransaction, Wallet]:
+        wallet = self.rows.get(user_id)
+        if wallet is None:
+            raise NotFoundError("WALLET_NOT_FOUND", "Wallet not found")
+        wallet = replace(wallet, balance=wallet.balance + amount, updated_at=now)
+        self.rows[user_id] = wallet
+        transaction = WalletTransaction(
+            id=len(self.transactions) + 1,
+            user_id=user_id,
+            type="TOPUP",
+            balance_delta=amount,
+            held_delta=0,
+            balance_after=wallet.balance,
+            held_after=wallet.held,
+            created_at=now,
+        )
+        self.transactions.append(transaction)
+        return transaction, wallet
+
+    def list_transactions(
+        self, user_id: int, transaction_type: str | None, page: int, size: int
+    ) -> tuple[list[WalletTransaction], int]:
+        rows = [t for t in self.transactions if t.user_id == user_id]
+        if transaction_type is not None:
+            rows = [t for t in rows if t.type == transaction_type]
+        rows = sorted(rows, key=lambda t: t.id, reverse=True)
+        start = (page - 1) * size
+        return rows[start:start + size], len(rows)
+
+
+class FakeAuctionRepository:
+    def __init__(self, rows: dict[int, Auction]) -> None:
+        self.rows = rows
+        self.filters: dict | None = None
+
+    def add(self, auction: Auction) -> Auction:
+        stored = replace(auction, id=max(self.rows, default=0) + 1)
+        self.rows[stored.id] = stored
+        return stored
+
+    def get(self, auction_id: int) -> Auction | None:
+        return self.rows.get(auction_id)
+
+    def lock_for_update(self, auction_id: int) -> Auction | None:
+        return self.rows.get(auction_id)
+
+    def list_visible(self, **filters) -> tuple[list[Auction], int]:
+        self.filters = filters
+        rows = [a for a in self.rows.values() if a.deleted_at is None]
+        if filters.get("status") is not None:
+            rows = [a for a in rows if a.status == filters["status"]]
+        if filters.get("seller_id") is not None:
+            rows = [a for a in rows if a.seller_id == filters["seller_id"]]
+        if filters.get("category"):
+            rows = [a for a in rows if a.category == filters["category"]]
+        if filters.get("title_contains"):
+            rows = [a for a in rows if filters["title_contains"].lower() in a.title.lower()]
+        if filters.get("min_price") is not None:
+            rows = [a for a in rows if a.current_price >= filters["min_price"]]
+        if filters.get("max_price") is not None:
+            rows = [a for a in rows if a.current_price <= filters["max_price"]]
+        if filters.get("starts_after") is not None:
+            rows = [a for a in rows if a.start_time > filters["starts_after"]]
+        if filters.get("starts_before") is not None:
+            rows = [a for a in rows if a.start_time <= filters["starts_before"]]
+        if filters.get("ends_after") is not None:
+            rows = [a for a in rows if a.end_time > filters["ends_after"]]
+        if filters.get("ends_before") is not None:
+            rows = [a for a in rows if a.end_time <= filters["ends_before"]]
+        total = len(rows)
+        sort = filters.get("sort", "ending_soon")
+        if sort == "ending_soon":
+            rows = sorted(rows, key=lambda a: (a.end_time, a.id))
+        elif sort == "newest":
+            rows = sorted(rows, key=lambda a: (a.start_time, a.id), reverse=True)
+        elif sort == "price_asc":
+            rows = sorted(rows, key=lambda a: (a.current_price, a.id))
+        else:
+            rows = sorted(rows, key=lambda a: (a.current_price, a.id), reverse=True)
+        start = (filters.get("page", 1) - 1) * filters.get("size", 20)
+        size = filters.get("size", 20)
+        return rows[start:start + size], total
+
+    def list_for_seller(self, user_id: int, status: str | None, page: int, size: int) -> tuple[list[Auction], int]:
+        rows = [a for a in self.rows.values() if a.seller_id == user_id and a.deleted_at is None]
+        if status is not None:
+            rows = [a for a in rows if a.status == status]
+        total = len(rows)
+        rows = sorted(rows, key=lambda a: a.id, reverse=True)
+        start = (page - 1) * size
+        return rows[start:start + size], total
+
+    def mark_deleted(self, auction_id: int, now: datetime) -> None:
+        auction = self.rows.get(auction_id)
+        if auction is not None:
+            self.rows[auction_id] = replace(auction, deleted_at=now)
 
 
 class FakeUnitOfWork:
@@ -49,7 +155,8 @@ class FakeUnitOfWork:
 
     def __enter__(self) -> "FakeUnitOfWork":
         self.users = FakeUserRepository(dict(self._db.users))
-        self.wallets = FakeWalletRepository(dict(self._db.wallets))
+        self.wallets = FakeWalletRepository(dict(self._db.wallets), list(self._db.transactions))
+        self.auctions = FakeAuctionRepository(dict(self._db.auctions))
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
@@ -58,6 +165,11 @@ class FakeUnitOfWork:
     def commit(self) -> None:
         self._db.users = self.users.rows
         self._db.wallets = self.wallets.rows
+        self._db.auctions = self.auctions.rows
+        self._db.transactions = self.wallets.transactions
+
+    def read_only(self) -> None:
+        pass
 
 
 class FakeHasher:
