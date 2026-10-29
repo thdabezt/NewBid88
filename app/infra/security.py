@@ -18,7 +18,6 @@ class BcryptHasher:
         try:
             return bcrypt.checkpw(plain.encode(), hashed.encode())
         except ValueError:
-            # bcrypt refuses passwords over 72 bytes; register never stores one, so it cannot match.
             return False
 
 
@@ -32,13 +31,23 @@ class JwtTokenService:
 
     def issue(self, user_id: int, username: str) -> tuple[str, int]:
         now = self._clock.now()
-        claims = {"sub": str(user_id), "username": username, "iat": now, "exp": now + self._lifetime}
+        claims = {
+            "sub": str(user_id),
+            "username": username,
+            "iat": now,
+            "exp": now + self._lifetime,
+        }
         token = jwt.encode(claims, self._secret, algorithm=self.ALGORITHM)
         return token, int(self._lifetime.total_seconds())
 
     def verify(self, token: str) -> int:
         try:
-            claims = jwt.decode(token, self._secret, algorithms=[self.ALGORITHM], options={"require": ["sub", "exp"]})
+            claims = jwt.decode(
+                token,
+                self._secret,
+                algorithms=[self.ALGORITHM],
+                options={"require": ["sub", "exp"]},
+            )
             return int(claims["sub"])
         except (jwt.PyJWTError, ValueError):
             raise InvalidToken() from None

@@ -1,15 +1,13 @@
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ErrorBody(BaseModel):
-    code: str
-    message: str
+    code: str = Field(examples=["VALIDATION_ERROR"])
+    message: str = Field(examples=["password: String should have at least 8 characters"])
     details: dict[str, Any] | None = None
 
 
 class ErrorResponse(BaseModel):
-    """The shape of every error, documented in Swagger."""
-
     error: ErrorBody

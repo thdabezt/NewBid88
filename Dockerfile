@@ -1,7 +1,8 @@
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
 WORKDIR /app
 
@@ -18,5 +19,4 @@ USER appuser
 
 EXPOSE 8000
 
-# Phase 1 runs a single worker; UVICORN_WORKERS is the knob for phase 2.
 CMD ["sh", "scripts/start.sh"]
