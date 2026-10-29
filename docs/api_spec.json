@@ -373,7 +373,7 @@
         "tags": [
           "05. Tra cứu phiên đấu giá"
         ],
-        "description": "Tìm và xem danh sách phiên đấu giá. Người xem không cần đăng nhập. Các phiên đã xóa không xuất hiện trong kết quả (BR-11).\n\n### Tìm kiếm và lọc\n- `state=live` (mặc định): phiên đang OPEN và đã bắt đầu nhưng chưa hết giờ.\n- `state=upcoming`: phiên OPEN chưa đến giờ bắt đầu.\n- `state=ended`: phiên đã SOLD, UNSOLD hoặc vẫn OPEN nhưng đã hết giờ.\n- `q`: tìm một phần tiêu đề, không phân biệt chữ hoa và chữ thường.\n- `category`: chỉ lấy phiên có danh mục trùng với giá trị gửi lên.\n- `seller_id`: chỉ lấy phiên của người bán được chỉ định.\n- `min_price`, `max_price`: lọc theo giá hiện tại của phiên.\n\nCác bộ lọc được áp dụng cùng nhau. Tham số `sort` cho phép sắp theo phiên sắp kết thúc (`ending_soon`, mặc định), phiên mới nhất (`newest`), giá tăng dần (`price_asc`) hoặc giá giảm dần (`price_desc`).\n\nAPI trả `200 OK` với danh sách `items` và các thông tin `page`, `size`, `total`. Mỗi phiên gồm mã, tiêu đề, danh mục, người bán, giá hiện tại, số lượt đặt giá, trạng thái và thời gian diễn ra. Mặc định lấy trang 1 với 20 phiên; mỗi trang tối đa 100 phiên. `total` là số phiên phù hợp sau khi lọc, trước khi chia trang. Không tìm thấy phiên phù hợp thì trả danh sách rỗng.\n\nGiá trị state, sort, kiểu dữ liệu hoặc phân trang không hợp lệ trả `422 VALIDATION_ERROR`.",
+        "description": "Tìm và xem danh sách phiên đấu giá. Người xem không cần đăng nhập. Các phiên đã xóa không xuất hiện trong kết quả (BR-11).\n\n### Tìm kiếm và lọc\n- `state=live` (mặc định): phiên đang OPEN và đã bắt đầu nhưng chưa hết giờ.\n- `state=upcoming`: phiên OPEN chưa đến giờ bắt đầu.\n- `state=finished`: phiên đã SOLD, UNSOLD hoặc vẫn OPEN nhưng đã hết giờ.\n- `q`: tìm một phần tiêu đề, không phân biệt chữ hoa và chữ thường.\n- `category`: chỉ lấy phiên có danh mục trùng với giá trị gửi lên.\n- `seller_id`: chỉ lấy phiên của người bán được chỉ định.\n- `min_price`, `max_price`: lọc theo giá hiện tại của phiên.\n\nCác bộ lọc được áp dụng cùng nhau. Tham số `sort` cho phép sắp theo phiên sắp kết thúc (`ending_soon`, mặc định), phiên mới nhất (`newest`), giá tăng dần (`price_asc`) hoặc giá giảm dần (`price_desc`).\n\nAPI trả `200 OK` với danh sách `items` và các thông tin `page`, `size`, `total`. Mỗi phiên gồm mã, tiêu đề, danh mục, người bán, giá hiện tại, số lượt đặt giá, trạng thái và thời gian diễn ra. Mặc định lấy trang 1 với 20 phiên; mỗi trang tối đa 100 phiên. `total` là số phiên phù hợp sau khi lọc, trước khi chia trang. Không tìm thấy phiên phù hợp thì trả danh sách rỗng.\n\nGiá trị state, sort, kiểu dữ liệu hoặc phân trang không hợp lệ trả `422 VALIDATION_ERROR`.",
         "operationId": "api_05_get_auctions",
         "x-api-number": 5,
         "security": [],
@@ -419,13 +419,13 @@
             "name": "state",
             "in": "query",
             "required": false,
-            "description": "Trạng thái thời gian của phiên: live, upcoming hoặc ended; mặc định live.",
+            "description": "Trạng thái thời gian của phiên: live, upcoming hoặc finished; mặc định live.",
             "schema": {
               "type": "string",
               "enum": [
                 "live",
                 "upcoming",
-                "ended"
+                "finished"
               ],
               "default": "live"
             }
