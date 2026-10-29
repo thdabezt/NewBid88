@@ -59,11 +59,11 @@ def browse_auctions(
     ] = None,
     min_price: Annotated[
         int | None,
-        Query(ge=1_000, description="Filter auctions by minimum current price"),
+        Query(description="Filter auctions by minimum current price"),
     ] = None,
     max_price: Annotated[
         int | None,
-        Query(ge=1_000, description="Filter auctions by maximum current price"),
+        Query(description="Filter auctions by maximum current price"),
     ] = None,
     sort: Annotated[
         Literal["ending_soon", "newest", "price_asc", "price_desc"],

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, CheckConstraint, DateTime, Identity, Index, MetaData, String, desc, func, Text, Integer, ForeignKey
+from sqlalchemy import BigInteger, CheckConstraint, DateTime, Identity, Index, MetaData, String, desc, func, Text, Integer, ForeignKey, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy import UniqueConstraint
 
@@ -27,7 +27,7 @@ class Wallet(Base):
         CheckConstraint("held >= 0 AND held <= balance", name="held_within_balance"),
     )
 
-    user_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
     balance: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     held: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     updated_at: Mapped[datetime] = mapped_column(
@@ -40,7 +40,7 @@ class WalletTransaction(Base):
     __table_args__ = (Index("ix_wallet_transactions_user_id_id", "user_id", "id"),)
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
-    user_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     type: Mapped[str] = mapped_column(String(30), nullable=False)
     balance_delta: Mapped[int] = mapped_column(BigInteger, nullable=False)
     held_delta: Mapped[int] = mapped_column(BigInteger, nullable=False)
@@ -74,6 +74,14 @@ class Auction(Base):
         CheckConstraint("reserve_price IS NULL OR reserve_price >= starting_price", name="reserve_not_below_start"),
         CheckConstraint("status IN ('OPEN', 'SOLD', 'UNSOLD')", name="valid_status"),
         CheckConstraint("min_increment > 0", name="min_increment_positive"),
+        Index(
+            "ix_auctions_status_end_time_open",
+            "status",
+            "end_time",
+            postgresql_where=text("status = 'OPEN'"),
+        ),
+        Index("ix_auctions_seller_id_id", "seller_id", desc("id")),
+        Index("ix_auctions_category", "category"),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
@@ -93,7 +101,7 @@ class Auction(Base):
     start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     end_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     extended_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
-    status: Mapped[str] = mapped_column(String(20), nullable=False, default="OPEN", server_default="OPEN")
+    status: Mapped[str] = mapped_column(String(10), nullable=False, default="OPEN", server_default="OPEN")
     winner_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     final_price: Mapped[int | None] = mapped_column(BigInteger)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

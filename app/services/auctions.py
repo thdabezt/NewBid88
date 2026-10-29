@@ -36,7 +36,7 @@ def _detail(auction: Auction, seller_username: str, leader_username: str | None,
             "reserve_met": (
                 None
                 if auction.reserve_price is None
-                else auction.current_price >= auction.reserve_price
+                else auction.current_price >= auction.reserve_price and auction.bid_count > 0
             ),
             "extended_count": auction.extended_count,
             "final_price": auction.final_price,
