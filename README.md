@@ -87,6 +87,10 @@ Nằm trong `/docs` của mã nguồn.
 | Docker | Đóng gói ứng dụng và môi trường chạy bằng container. |
 | Docker Compose | Cấu hình và chạy các dịch vụ API, PostgreSQL cùng nhau. |
 
+## Database
+
+![Database Schema](database_schema.png)
+
 ## Vấn đề hiện tại
 
 - Số lượng bid lớn: Khi một lượng lớn số người bid một lúc, số tiền bid của của nhiều người sẽ bị một người vượt qua và nhận thông báo “giá đã vượt qua” -> chờ vô ích.
