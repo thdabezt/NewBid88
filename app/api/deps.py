@@ -8,7 +8,9 @@ from app.domain.errors import AuthenticationError
 from app.infra.uow import SqlAlchemyUnitOfWork
 from app.services.auth_service import AuthService
 
-bearer_scheme = HTTPBearer(auto_error=False, description="Access token from POST /auth/login")
+bearer_scheme = HTTPBearer(
+    auto_error=False, bearerFormat="JWT", description="Access token from POST /auth/login"
+)
 
 
 def get_db_ping(request: Request) -> Callable[[], bool]:

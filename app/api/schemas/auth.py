@@ -21,6 +21,6 @@ class LoginRequest(BaseModel):
 
 
 class TokenResponse(BaseModel):
-    access_token: str
+    access_token: str = Field(examples=["eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."])
     token_type: Literal["Bearer"] = "Bearer"
     expires_in: int = Field(description="Seconds until the token expires", examples=[3600])

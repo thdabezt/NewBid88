@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 
-@dataclass
+@dataclass(slots=True)
 class User:
     username: str
     password_hash: str
@@ -10,7 +10,7 @@ class User:
     id: int | None = None
 
 
-@dataclass
+@dataclass(slots=True)
 class Wallet:
     user_id: int
     updated_at: datetime

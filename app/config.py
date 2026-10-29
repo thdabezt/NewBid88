@@ -4,11 +4,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env")
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
     database_url: str = "postgresql+psycopg://newbid:newbid@db:5432/newbid"
     db_pool_size: int = 10
     db_max_overflow: int = 10
+    db_connect_timeout: int = 3
 
     jwt_secret: str
     jwt_expire_minutes: int = 60

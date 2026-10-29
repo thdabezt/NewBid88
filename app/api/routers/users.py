@@ -22,7 +22,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 )
 def me(user_id: CurrentUserId, auth: Auth) -> UserResponse:
     user = auth.get_user(user_id)
-    return UserResponse(id=user.id, username=user.username, created_at=user.created_at)
+    return UserResponse.model_validate(user, from_attributes=True)
 
 
 @router.get("/me/auctions", response_model=MyAuctionResponse)
