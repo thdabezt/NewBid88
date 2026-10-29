@@ -5,9 +5,10 @@ from datetime import UTC, datetime, timedelta
 from app.domain.bids import validate_bid
 from app.domain.errors import DomainError, NotFoundError
 from app.domain.bids import auction_phase, my_bid_status
+from app.domain.ports import UnitOfWork
 
 # Validate and place a bid, update wallet balances and auction details, and commit all changes atomically.
-def place_bid(uow, user_id: int, auction_id: int, amount: int, snipe_window: int = 60, snipe_extension: int = 60) -> dict:
+def place_bid(uow: UnitOfWork, user_id: int, auction_id: int, amount: int, snipe_window: int = 60, snipe_extension: int = 60) -> dict:
     with uow:
         repo = uow.bids
 
@@ -40,16 +41,11 @@ def place_bid(uow, user_id: int, auction_id: int, amount: int, snipe_window: int
 
         # Create the bid and hold the required funds without deducting the wallet balance.
         bid = repo.add_bid(auction_id, user_id, amount, now)
-        wallet.held += amount
-        wallet.updated_at = now
-        repo.add_ledger(wallet, "BID_HOLD", amount, auction_id, bid.id, now)
+        hold = uow.wallets.apply(user_id, "BID_HOLD", 0, amount, now, auction_id, bid.id)
 
         # Release the previous highest bidder's held funds.
         if old_user_id is not None:
-            old_wallet = wallets[old_user_id]
-            old_wallet.held -= old_price
-            old_wallet.updated_at = now
-            repo.add_ledger(old_wallet, "BID_RELEASE", -old_price, auction_id, old_bid_id, now)
+            uow.wallets.apply(old_user_id, "BID_RELEASE", 0, -old_price, now, auction_id, old_bid_id)
 
         # Update the auction with the new highest bid.
         auction.current_price = amount
@@ -63,6 +59,8 @@ def place_bid(uow, user_id: int, auction_id: int, amount: int, snipe_window: int
             auction.end_time = max(auction.end_time, now + timedelta(seconds=snipe_extension))
             auction.extended_count += 1
 
+        repo.update_auction(auction)
+
         result = {
             "bid": {
                 "id": bid.id, "auction_id": auction_id,
@@ -75,9 +73,9 @@ def place_bid(uow, user_id: int, auction_id: int, amount: int, snipe_window: int
                 "extended": extended,
             },
             "wallet": {
-                "balance": wallet.balance,
-                "held": wallet.held,
-                "available": wallet.balance - wallet.held,
+                "balance": hold.balance_after,
+                "held": hold.held_after,
+                "available": hold.balance_after - hold.held_after,
             },
         }
 
@@ -86,7 +84,7 @@ def place_bid(uow, user_id: int, auction_id: int, amount: int, snipe_window: int
         return result
 
 # Get bid history for an auction.
-def bid_history(uow, auction_id: int, page: int, size: int) -> dict:
+def bid_history(uow: UnitOfWork, auction_id: int, page: int, size: int) -> dict:
     with uow:
         uow.read_only()
 
@@ -107,7 +105,7 @@ def bid_history(uow, auction_id: int, page: int, size: int) -> dict:
         return {"items": items, "page": page, "size": size, "total": total}
 
 # Get the user's bid auctions.
-def my_bids(uow, user_id: int, status: str | None, page: int, size: int) -> dict:
+def my_bids(uow: UnitOfWork, user_id: int, status: str | None, page: int, size: int) -> dict:
     with uow:
         uow.read_only()
 
