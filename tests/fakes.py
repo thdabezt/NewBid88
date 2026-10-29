@@ -1,9 +1,8 @@
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from copy import deepcopy
-from types import SimpleNamespace
 
-from app.domain.entities import Auction, User, Wallet, WalletTransaction
+from app.domain.entities import Auction, Bid, User, Wallet, WalletTransaction
 from app.domain.errors import NotFoundError, UsernameTaken
 
 
@@ -244,15 +243,16 @@ class FixedClock:
 
 class BidsMemoryDb:
     def __init__(self, now):
-        self.auctions = {1: SimpleNamespace(
+        self.auctions = {1: Auction(
             id=1, seller_id=1, title="Test auction", status="OPEN",
             starting_price=20_000, min_increment=5_000, current_price=20_000,
             bid_count=0, highest_bid_id=None, highest_bidder_id=None,
             start_time=now - timedelta(minutes=1), end_time=now + timedelta(minutes=10),
             extended_count=0, winner_id=None, deleted_at=None,
+            description="Test auction", category="Test", created_at=now,
         )}
         self.wallets = {
-            user_id: SimpleNamespace(user_id=user_id, balance=100_000, held=0, updated_at=now)
+            user_id: Wallet(user_id=user_id, balance=100_000, held=0, updated_at=now)
             for user_id in (1, 2, 3)
         }
         self.bids = []
@@ -271,23 +271,19 @@ class FakeBidsRepository:
 
     def get_auction(self, auction_id, lock=False):
         auction = self.db.auctions.get(auction_id)
-        return auction if auction is not None and auction.deleted_at is None else None
+        return deepcopy(auction) if auction is not None and auction.deleted_at is None else None
 
     def lock_wallets(self, user_ids):
-        return {user_id: self.db.wallets.get(user_id) for user_id in user_ids}
+        return {user_id: deepcopy(self.db.wallets.get(user_id)) for user_id in sorted(set(user_ids))}
 
     def add_bid(self, auction_id, user_id, amount, now):
-        bid = SimpleNamespace(id=len(self.db.bids) + 1, auction_id=auction_id,
-                              bidder_id=user_id, amount=amount, created_at=now)
+        bid = Bid(id=len(self.db.bids) + 1, auction_id=auction_id,
+                  bidder_id=user_id, amount=amount, created_at=now)
         self.db.bids.append(bid)
         return bid
 
-    def add_ledger(self, wallet, kind, delta, auction_id, bid_id, now):
-        self.db.ledger.append(dict(
-            user_id=wallet.user_id, type=kind, balance_delta=0, held_delta=delta,
-            balance_after=wallet.balance, held_after=wallet.held,
-            auction_id=auction_id, bid_id=bid_id, created_at=now,
-        ))
+    def update_auction(self, auction):
+        self.db.auctions[auction.id] = deepcopy(auction)
 
     def history(self, auction_id, page, size):
         self.db.history_args = (auction_id, page, size)
@@ -307,6 +303,7 @@ class FakeBidsUnitOfWork:
     def __enter__(self):
         self.working = deepcopy(self.db)
         self.bids = FakeBidsRepository(self.working)
+        self.wallets = FakeWalletRepository(self.working.wallets, self.working.ledger)
         return self
 
     def __exit__(self, exc_type, exc, tb):

@@ -4,7 +4,7 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Protocol
 
-from app.domain.entities import Auction, User, Wallet, WalletTransaction
+from app.domain.entities import Auction, Bid, User, Wallet, WalletTransaction
 
 
 class UserRepository(Protocol):
@@ -74,10 +74,25 @@ class AuctionRepository(Protocol):
     def close(self, auction: Auction) -> None: ...
 
 
+class BidsRepository(Protocol):
+    def get_auction(self, auction_id: int, lock: bool = False) -> Auction | None: ...
+
+    def lock_wallets(self, user_ids: list[int]) -> dict[int, Wallet | None]: ...
+
+    def add_bid(self, auction_id: int, user_id: int, amount: int, now: datetime) -> Bid: ...
+
+    def update_auction(self, auction: Auction) -> None: ...
+
+    def history(self, auction_id: int, page: int, size: int) -> tuple[list[tuple[Bid, str]], int]: ...
+
+    def mine(self, user_id: int, status: str | None, page: int, size: int) -> tuple[list[tuple[Auction, int]], int]: ...
+
+
 class UnitOfWork(Protocol):
     users: UserRepository
     wallets: WalletRepository
     auctions: AuctionRepository
+    bids: BidsRepository
 
     def __enter__(self) -> UnitOfWork: ...
 

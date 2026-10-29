@@ -50,6 +50,15 @@ class Auction:
 
 
 @dataclass
+class Bid:
+    auction_id: int
+    bidder_id: int
+    amount: int
+    created_at: datetime
+    id: int | None = None
+
+
+@dataclass
 class WalletTransaction:
     """One line of the wallet ledger."""
 

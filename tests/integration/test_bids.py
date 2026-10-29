@@ -1,9 +1,11 @@
+from datetime import timedelta
 from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app, tokens
+from app.config import settings
 from tests.fakes import FakeBidsUnitOfWork
 
 
@@ -32,6 +34,23 @@ def test_place_bid_returns_201_and_uses_token_user(client, bids_db):
     assert body["auction"]["bid_count"] == 1
     assert body["wallet"] == {"balance": 100_000, "held": 20_000, "available": 80_000}
     assert bids_db.bids[0].bidder_id == 2
+
+
+@pytest.mark.parametrize("window, extension, seconds_left, extended", [
+    (15, 90, 30, False), (90, 120, 75, True), (15, 90, 15, True),
+])
+def test_place_bid_uses_snipe_settings(client, bids_db, bids_now, monkeypatch, window, extension, seconds_left, extended):
+    monkeypatch.setattr(settings, "snipe_window_seconds", window)
+    monkeypatch.setattr(settings, "snipe_extension_seconds", extension)
+    bids_db.auctions[1].end_time = bids_now + timedelta(seconds=seconds_left)
+
+    response = client.post("/auctions/1/bids", headers=auth_header(), json={"amount": 20_000})
+
+    assert response.status_code == 201
+    assert response.json()["auction"]["extended"] is extended
+    expected_seconds = max(seconds_left, extension) if extended else seconds_left
+    assert bids_db.auctions[1].end_time == bids_now + timedelta(seconds=expected_seconds)
+    assert bids_db.auctions[1].extended_count == int(extended)
 
 
 @pytest.mark.parametrize("body", [{}, {"amount": "20000"}, {"amount": 20_000.5}, {"amount": True}])

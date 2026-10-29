@@ -19,9 +19,9 @@ def test_first_bid_holds_money_and_updates_auction(bids_db):
     assert bids_db.auctions[1].highest_bid_id == result["bid"]["id"]
     assert bids_db.auctions[1].current_price == 20_000
     assert bids_db.bids[0].bidder_id == 2
-    assert bids_db.ledger[0]["type"] == "BID_HOLD"
-    assert bids_db.ledger[0]["held_delta"] == 20_000
-    assert bids_db.ledger[0]["balance_delta"] == 0
+    assert bids_db.ledger[0].type == "BID_HOLD"
+    assert bids_db.ledger[0].held_delta == 20_000
+    assert bids_db.ledger[0].balance_delta == 0
     assert uow.commits == 1
 
 
@@ -34,10 +34,10 @@ def test_outbid_releases_only_this_auctions_hold(bids_db):
     assert bids_db.wallets[3].held == 25_000
     assert bids_db.wallets[2].balance == bids_db.wallets[3].balance == 100_000
     release = bids_db.ledger[-1]
-    assert release["type"] == "BID_RELEASE"
-    assert release["held_delta"] == -20_000
-    assert release["bid_id"] == first["bid"]["id"]
-    assert release["held_after"] == 10_000
+    assert release.type == "BID_RELEASE"
+    assert release.held_delta == -20_000
+    assert release.bid_id == first["bid"]["id"]
+    assert release.held_after == 10_000
 
 
 @pytest.mark.parametrize("case, code", [
