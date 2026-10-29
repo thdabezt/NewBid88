@@ -38,6 +38,17 @@ class WalletRepository(Protocol):
         """Return one page of ledger rows, newest first, plus the total count."""
         ...
 
+    def apply(
+        self,
+        user_id: int,
+        transaction_type: str,
+        balance_delta: int,
+        held_delta: int,
+        now: datetime,
+        auction_id: int | None = None,
+        bid_id: int | None = None,
+    ) -> WalletTransaction: ...
+
 
 class AuctionRepository(Protocol):
     def add(self, auction: Auction) -> Auction:
@@ -61,6 +72,10 @@ class AuctionRepository(Protocol):
         ...
 
     def mark_deleted(self, auction_id: int, now: datetime) -> None: ...
+
+    def list_due_ids(self, now: datetime, limit: int) -> list[int]: ...
+
+    def close(self, auction: Auction) -> None: ...
 
 
 class UnitOfWork(Protocol):

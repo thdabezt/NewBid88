@@ -78,6 +78,38 @@ class FakeWalletRepository:
         start = (page - 1) * size
         return rows[start:start + size], len(rows)
 
+    def apply(
+        self,
+        user_id: int,
+        transaction_type: str,
+        balance_delta: int,
+        held_delta: int,
+        now: datetime,
+        auction_id: int | None = None,
+        bid_id: int | None = None,
+    ) -> WalletTransaction:
+        wallet = self.rows.get(user_id)
+        if wallet is None:
+            raise NotFoundError("WALLET_NOT_FOUND", "Wallet not found")
+        wallet = replace(
+            wallet, balance=wallet.balance + balance_delta, held=wallet.held + held_delta, updated_at=now
+        )
+        self.rows[user_id] = wallet
+        transaction = WalletTransaction(
+            id=len(self.transactions) + 1,
+            user_id=user_id,
+            type=transaction_type,
+            balance_delta=balance_delta,
+            held_delta=held_delta,
+            balance_after=wallet.balance,
+            held_after=wallet.held,
+            auction_id=auction_id,
+            bid_id=bid_id,
+            created_at=now,
+        )
+        self.transactions.append(transaction)
+        return transaction
+
 
 class FakeAuctionRepository:
     def __init__(self, rows: dict[int, Auction]) -> None:
@@ -145,6 +177,13 @@ class FakeAuctionRepository:
         auction = self.rows.get(auction_id)
         if auction is not None:
             self.rows[auction_id] = replace(auction, deleted_at=now)
+
+    def list_due_ids(self, now: datetime, limit: int) -> list[int]:
+        rows = [a for a in self.rows.values() if a.status == "OPEN" and a.deleted_at is None and a.end_time <= now]
+        return [a.id for a in sorted(rows, key=lambda a: (a.end_time, a.id))][:limit]
+
+    def close(self, auction: Auction) -> None:
+        self.rows[auction.id] = auction
 
 
 class FakeUnitOfWork:
