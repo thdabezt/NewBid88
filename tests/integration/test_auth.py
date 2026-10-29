@@ -52,6 +52,7 @@ def test_register_taken_username(client):
         ("an_nguyen", "short"),
         ("an_nguyen", "ă" * 40),
     ],
+    ids=["username-too-short", "username-with-space", "password-too-short", "password-over-72-bytes"],
 )
 def test_register_validates_input(client, username, password):
     response = register(client, username=username, password=password)
