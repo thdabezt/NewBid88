@@ -1,5 +1,3 @@
-"""In-memory stand-ins for the domain ports, for tests that should not need PostgreSQL."""
-
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from copy import deepcopy
@@ -92,7 +90,10 @@ class FakeWalletRepository:
         if wallet is None:
             raise NotFoundError("WALLET_NOT_FOUND", "Wallet not found")
         wallet = replace(
-            wallet, balance=wallet.balance + balance_delta, held=wallet.held + held_delta, updated_at=now
+            wallet,
+            balance=wallet.balance + balance_delta,
+            held=wallet.held + held_delta,
+            updated_at=now,
         )
         self.rows[user_id] = wallet
         transaction = WalletTransaction(
@@ -179,7 +180,11 @@ class FakeAuctionRepository:
             self.rows[auction_id] = replace(auction, deleted_at=now)
 
     def list_due_ids(self, now: datetime, limit: int) -> list[int]:
-        rows = [a for a in self.rows.values() if a.status == "OPEN" and a.deleted_at is None and a.end_time <= now]
+        rows = [
+            a
+            for a in self.rows.values()
+            if a.status == "OPEN" and a.deleted_at is None and a.end_time <= now
+        ]
         return [a.id for a in sorted(rows, key=lambda a: (a.end_time, a.id))][:limit]
 
     def close(self, auction: Auction) -> None:
@@ -187,8 +192,6 @@ class FakeAuctionRepository:
 
 
 class FakeUnitOfWork:
-    """Works on copies of the tables; only commit() writes them back, like a real transaction."""
-
     def __init__(self, db: InMemoryDb) -> None:
         self._db = db
 

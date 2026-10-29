@@ -8,14 +8,12 @@ engine = create_engine(
     settings.database_url,
     pool_size=settings.db_pool_size,
     max_overflow=settings.db_max_overflow,
-    # Fail fast so /health answers 503 instead of hanging when the database is unreachable.
-    connect_args={"connect_timeout": 3},
+    connect_args={"connect_timeout": settings.db_connect_timeout},
 )
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
 
 
 def ping() -> bool:
-    """Run SELECT 1. False when the database cannot be reached."""
     try:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))

@@ -1,5 +1,3 @@
-"""Interfaces the services layer depends on. infra implements them; main.py wires them in."""
-
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -10,9 +8,7 @@ from app.domain.entities import Auction, User, Wallet, WalletTransaction
 
 
 class UserRepository(Protocol):
-    def add(self, user: User) -> User:
-        """Insert the user and return it with its id. Raises UsernameTaken if the username exists."""
-        ...
+    def add(self, user: User) -> User: ...
 
     def get(self, id: int) -> User | None: ...
 
@@ -79,13 +75,11 @@ class AuctionRepository(Protocol):
 
 
 class UnitOfWork(Protocol):
-    """One transaction. Leaving the with-block without commit() rolls everything back."""
-
     users: UserRepository
     wallets: WalletRepository
     auctions: AuctionRepository
 
-    def __enter__(self) -> "UnitOfWork": ...
+    def __enter__(self) -> UnitOfWork: ...
 
     def __exit__(self, exc_type, exc, tb) -> None: ...
 
@@ -104,16 +98,10 @@ class PasswordHasher(Protocol):
 
 
 class TokenService(Protocol):
-    def issue(self, user_id: int, username: str) -> tuple[str, int]:
-        """Return the access token and its lifetime in seconds."""
-        ...
+    def issue(self, user_id: int, username: str) -> tuple[str, int]: ...
 
-    def verify(self, token: str) -> int:
-        """Return the user id in the token. Raises InvalidToken."""
-        ...
+    def verify(self, token: str) -> int: ...
 
 
 class Clock(Protocol):
-    def now(self) -> datetime:
-        """Current time, timezone-aware UTC."""
-        ...
+    def now(self) -> datetime: ...

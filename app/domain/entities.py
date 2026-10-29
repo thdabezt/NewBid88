@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 
-@dataclass
+@dataclass(slots=True)
 class User:
     username: str
     password_hash: str
@@ -10,10 +10,8 @@ class User:
     id: int | None = None
 
 
-@dataclass
+@dataclass(slots=True)
 class Wallet:
-    """held is the money locked by the user's leading bids; available is what they can still bid with."""
-
     user_id: int
     updated_at: datetime
     balance: int = 0

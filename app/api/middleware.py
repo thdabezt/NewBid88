@@ -6,7 +6,6 @@ from app.api.errors import error_response
 from app.domain.errors import AuthenticationError, InvalidToken
 from app.domain.ports import TokenService
 
-# Deny by default: every request needs a token except these (method, full path).
 PUBLIC_ROUTES = [
     ("POST", re.compile(r"/auth/(register|login)")),
     ("GET", re.compile(r"/auctions(/[^/]+)?")),
@@ -15,8 +14,12 @@ PUBLIC_ROUTES = [
     ("GET", re.compile(r"/auctions/[^/]+/bids")),
 ]
 
+
 def is_public(method: str, path: str) -> bool:
-    return any(method == public_method and pattern.fullmatch(path) for public_method, pattern in PUBLIC_ROUTES)
+    return any(
+        method == public_method and pattern.fullmatch(path)
+        for public_method, pattern in PUBLIC_ROUTES
+    )
 
 
 def bearer_token(scope: Scope) -> str:
@@ -29,8 +32,6 @@ def bearer_token(scope: Scope) -> str:
 
 
 class JWTAuthMiddleware:
-    """Pure ASGI middleware: checks the bearer token once per request and puts the user id on request.state."""
-
     def __init__(self, app: ASGIApp, tokens: TokenService) -> None:
         self.app = app
         self.tokens = tokens

@@ -1,5 +1,3 @@
-"""SQLAlchemy implementations of the repository ports. They convert ORM rows to plain domain entities."""
-
 from datetime import datetime
 
 from sqlalchemy import func, select
@@ -12,7 +10,9 @@ from app.infra.db import models
 
 
 def to_user(row: models.User) -> User:
-    return User(id=row.id, username=row.username, password_hash=row.password_hash, created_at=row.created_at)
+    return User(
+        id=row.id, username=row.username, password_hash=row.password_hash, created_at=row.created_at
+    )
 
 
 def to_wallet(row: models.Wallet) -> Wallet:
@@ -65,12 +65,13 @@ class SqlAlchemyUserRepository:
         self._session = session
 
     def add(self, user: User) -> User:
-        row = models.User(username=user.username, password_hash=user.password_hash, created_at=user.created_at)
+        row = models.User(
+            username=user.username, password_hash=user.password_hash, created_at=user.created_at
+        )
         self._session.add(row)
         try:
             self._session.flush()
         except IntegrityError:
-            # The UNIQUE constraint decides when two requests register the same username at once.
             raise UsernameTaken(user.username) from None
         return to_user(row)
 
