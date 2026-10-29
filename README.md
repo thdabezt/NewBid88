@@ -91,6 +91,10 @@ Nằm trong `/docs` của mã nguồn.
 
 ![Database Schema](database_schema.png)
 
+## Architecture
+
+![Architecture](architecture.png)
+
 ## Vấn đề hiện tại
 
 - Số lượng bid lớn: Khi một lượng lớn số người bid một lúc, số tiền bid của của nhiều người sẽ bị một người vượt qua và nhận thông báo “giá đã vượt qua” -> chờ vô ích.
