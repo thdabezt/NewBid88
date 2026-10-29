@@ -9,7 +9,7 @@ from app.domain.ports import TokenService
 # Deny by default: every request needs a token except these (method, full path).
 PUBLIC_ROUTES = [
     ("POST", re.compile(r"/auth/(register|login)")),
-    ("GET", re.compile(r"/auctions(/\d+(/bids)?)?")),
+    ("GET", re.compile(r"/auctions(/[^/]+)?")),
     ("GET", re.compile(r"/health")),
     ("GET", re.compile(r"/(docs|docs/oauth2-redirect|redoc|openapi\.json)")),
     ("GET", re.compile(r"/auctions/[^/]+/bids")),

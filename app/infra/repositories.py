@@ -147,6 +147,39 @@ class SqlAlchemyWalletRepository:
         ).all()
         return [to_transaction(row) for row in rows], total
 
+    def apply(
+        self,
+        user_id: int,
+        transaction_type: str,
+        balance_delta: int,
+        held_delta: int,
+        now: datetime,
+        auction_id: int | None = None,
+        bid_id: int | None = None,
+    ) -> WalletTransaction:
+        row = self._session.scalar(
+            select(models.Wallet).where(models.Wallet.user_id == user_id).with_for_update()
+        )
+        if row is None:
+            raise NotFoundError("WALLET_NOT_FOUND", "Wallet not found")
+        row.balance += balance_delta
+        row.held += held_delta
+        row.updated_at = now
+        transaction = models.WalletTransaction(
+            user_id=user_id,
+            type=transaction_type,
+            balance_delta=balance_delta,
+            held_delta=held_delta,
+            balance_after=row.balance,
+            held_after=row.held,
+            auction_id=auction_id,
+            bid_id=bid_id,
+            created_at=now,
+        )
+        self._session.add(transaction)
+        self._session.flush()
+        return to_transaction(transaction)
+
 
 class SqlAlchemyAuctionRepository:
     def __init__(self, session: Session) -> None:
@@ -239,3 +272,25 @@ class SqlAlchemyAuctionRepository:
         row = self._session.get(models.Auction, auction_id)
         if row is not None:
             row.deleted_at = now
+
+    def list_due_ids(self, now: datetime, limit: int) -> list[int]:
+        return list(
+            self._session.scalars(
+                select(models.Auction.id)
+                .where(
+                    models.Auction.status == "OPEN",
+                    models.Auction.deleted_at.is_(None),
+                    models.Auction.end_time <= now,
+                )
+                .order_by(models.Auction.end_time, models.Auction.id)
+                .limit(limit)
+            )
+        )
+
+    def close(self, auction: Auction) -> None:
+        row = self._session.get(models.Auction, auction.id)
+        if row is not None:
+            row.status = auction.status
+            row.winner_id = auction.winner_id
+            row.final_price = auction.final_price
+            row.closed_at = auction.closed_at
