@@ -6,3 +6,4 @@ os.environ.setdefault("DATABASE_URL", "postgresql+psycopg://newbid:newbid@localh
 os.environ.setdefault("JWT_SECRET", "test-secret-at-least-32-bytes-long")
 # Lowest bcrypt cost, so tests that hash passwords stay fast.
 os.environ.setdefault("BCRYPT_ROUNDS", "4")
+os.environ.setdefault("SETTLE_INTERVAL_SECONDS", "0")
