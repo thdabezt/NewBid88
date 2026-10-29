@@ -54,7 +54,9 @@ def test_unexpected_error_hides_internals():
     response = client_raising(RuntimeError("secret stack info")).get("/boom")
 
     assert response.status_code == 500
-    assert response.json() == {"error": {"code": "INTERNAL_ERROR", "message": "Unexpected server error"}}
+    assert response.json() == {
+        "error": {"code": "INTERNAL_ERROR", "message": "Unexpected server error"}
+    }
 
 
 def test_unknown_path_returns_not_found():

@@ -18,7 +18,9 @@ from app.workers.settler import Settler
 clock = SystemClock()
 tokens = JwtTokenService(settings.jwt_secret, settings.jwt_expire_minutes, clock)
 uow_factory = partial(SqlAlchemyUnitOfWork, SessionLocal)
-settler = Settler(SettlementService(uow_factory, clock), settings.settle_interval_seconds, settings.settle_batch)
+settler = Settler(
+    SettlementService(uow_factory, clock), settings.settle_interval_seconds, settings.settle_batch
+)
 
 
 @asynccontextmanager
@@ -32,7 +34,9 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="NewBid88 API", lifespan=lifespan)
 app.state.db_ping = ping
 app.state.uow_factory = uow_factory
-app.state.auth_service = AuthService(uow_factory, BcryptHasher(settings.bcrypt_rounds), tokens, clock)
+app.state.auth_service = AuthService(
+    uow_factory, BcryptHasher(settings.bcrypt_rounds), tokens, clock
+)
 
 app.add_middleware(JWTAuthMiddleware, tokens=tokens)
 app.include_router(health.router)

@@ -10,7 +10,9 @@ SECRET = "unit-test-secret-at-least-32-bytes"
 
 
 def tokens_issued(minutes_ago: int = 0, secret: str = SECRET) -> JwtTokenService:
-    return JwtTokenService(secret, 60, FixedClock(datetime.now(UTC) - timedelta(minutes=minutes_ago)))
+    return JwtTokenService(
+        secret, 60, FixedClock(datetime.now(UTC) - timedelta(minutes=minutes_ago))
+    )
 
 
 def test_bcrypt_hash_verifies_only_the_same_password():

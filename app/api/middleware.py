@@ -14,8 +14,12 @@ PUBLIC_ROUTES = [
     ("GET", re.compile(r"/auctions/[^/]+/bids")),
 ]
 
+
 def is_public(method: str, path: str) -> bool:
-    return any(method == public_method and pattern.fullmatch(path) for public_method, pattern in PUBLIC_ROUTES)
+    return any(
+        method == public_method and pattern.fullmatch(path)
+        for public_method, pattern in PUBLIC_ROUTES
+    )
 
 
 def bearer_token(scope: Scope) -> str:
