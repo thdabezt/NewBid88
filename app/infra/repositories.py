@@ -1,5 +1,3 @@
-"""SQLAlchemy implementations of the repository ports. They convert ORM rows to plain domain entities."""
-
 from datetime import datetime
 
 from sqlalchemy import func, select
@@ -70,7 +68,6 @@ class SqlAlchemyUserRepository:
         try:
             self._session.flush()
         except IntegrityError:
-            # The UNIQUE constraint decides when two requests register the same username at once.
             raise UsernameTaken(user.username) from None
         return to_user(row)
 

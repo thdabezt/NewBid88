@@ -18,7 +18,6 @@ class BcryptHasher:
         try:
             return bcrypt.checkpw(plain.encode(), hashed.encode())
         except ValueError:
-            # bcrypt refuses passwords over 72 bytes; register never stores one, so it cannot match.
             return False
 
 

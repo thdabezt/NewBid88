@@ -21,7 +21,6 @@ router = APIRouter(prefix="/users", tags=["users"])
     },
 )
 def me(user_id: CurrentUserId, auth: Auth) -> UserResponse:
-    """The logged-in user's account."""
     user = auth.get_user(user_id)
     return UserResponse(id=user.id, username=user.username, created_at=user.created_at)
 

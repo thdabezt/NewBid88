@@ -1,5 +1,4 @@
 #!/bin/sh
-# Shared by the Docker image and the Kaggle notebook, so the code we load test is the code we ship.
 set -e
 
 alembic upgrade head

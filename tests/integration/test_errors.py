@@ -15,7 +15,6 @@ from app.main import app, tokens
 
 
 def client_raising(exc: Exception) -> TestClient:
-    """A throwaway app whose only route raises exc."""
     test_app = FastAPI()
     register_error_handlers(test_app)
 
@@ -68,7 +67,6 @@ def test_unknown_path_returns_not_found():
 
 
 def test_unknown_path_without_token_is_unauthorized():
-    # The middleware denies by default, so it answers before routing.
     response = TestClient(app).get("/no-such-path")
 
     assert response.status_code == 401

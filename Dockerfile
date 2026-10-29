@@ -18,5 +18,4 @@ USER appuser
 
 EXPOSE 8000
 
-# Phase 1 runs a single worker; UVICORN_WORKERS is the knob for phase 2.
 CMD ["sh", "scripts/start.sh"]

@@ -8,7 +8,6 @@ from tests.fakes import FakeHasher, FakeUnitOfWork, InMemoryDb
 
 @pytest.fixture()
 def client():
-    """The real app and real JWTs, with an in-memory database behind the auth service."""
     db = InMemoryDb()
     real_service = app.state.auth_service
     app.state.auth_service = AuthService(lambda: FakeUnitOfWork(db), FakeHasher(), tokens, clock)
@@ -48,10 +47,10 @@ def test_register_taken_username(client):
 @pytest.mark.parametrize(
     "username, password",
     [
-        ("ab", "matkhau123"),  # username too short
-        ("an nguyen", "matkhau123"),  # space not allowed
-        ("an_nguyen", "short"),  # password under 8 characters
-        ("an_nguyen", "ă" * 40),  # 40 characters but 80 bytes
+        ("ab", "matkhau123"),
+        ("an nguyen", "matkhau123"),
+        ("an_nguyen", "short"),
+        ("an_nguyen", "ă" * 40),
     ],
 )
 def test_register_validates_input(client, username, password):

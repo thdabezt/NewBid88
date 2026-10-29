@@ -15,7 +15,6 @@ from app.services.auth_service import AuthService
 from app.services.settlement import SettlementService
 from app.workers.settler import Settler
 
-# Composition root: the only place that wires api, services and infra together.
 clock = SystemClock()
 tokens = JwtTokenService(settings.jwt_secret, settings.jwt_expire_minutes, clock)
 uow_factory = partial(SqlAlchemyUnitOfWork, SessionLocal)

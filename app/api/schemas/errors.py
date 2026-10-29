@@ -10,6 +10,4 @@ class ErrorBody(BaseModel):
 
 
 class ErrorResponse(BaseModel):
-    """The shape of every error, documented in Swagger."""
-
     error: ErrorBody

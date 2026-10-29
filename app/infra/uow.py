@@ -10,8 +10,6 @@ from app.infra.repositories import (
 
 
 class SqlAlchemyUnitOfWork:
-    """One session and one transaction per use case."""
-
     def __init__(self, session_factory: sessionmaker[Session]) -> None:
         self._session_factory = session_factory
 
@@ -24,7 +22,6 @@ class SqlAlchemyUnitOfWork:
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
-        # close() rolls back whatever was not committed and returns the connection to the pool.
         self._session.close()
 
     def commit(self) -> None:

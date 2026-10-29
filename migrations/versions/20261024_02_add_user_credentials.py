@@ -17,7 +17,6 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Users added by hand before register existed get an empty hash, so they can never log in.
     op.add_column("users", sa.Column("password_hash", sa.String(length=60), server_default="", nullable=False))
     op.alter_column("users", "password_hash", server_default=None)
     op.add_column(

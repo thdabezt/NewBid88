@@ -1,5 +1,3 @@
-"""In-memory stand-ins for the domain ports, for tests that should not need PostgreSQL."""
-
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from copy import deepcopy
@@ -187,8 +185,6 @@ class FakeAuctionRepository:
 
 
 class FakeUnitOfWork:
-    """Works on copies of the tables; only commit() writes them back, like a real transaction."""
-
     def __init__(self, db: InMemoryDb) -> None:
         self._db = db
 

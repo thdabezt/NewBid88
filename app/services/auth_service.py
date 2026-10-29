@@ -9,12 +9,9 @@ class AuthService:
         self._hasher = hasher
         self._tokens = tokens
         self._clock = clock
-        # Checked against when the username is unknown, so both login failures cost one bcrypt verify.
         self._dummy_hash = hasher.hash("not-a-real-password")
 
     def register(self, username: str, password: str) -> User:
-        """BR-01: create the user and an empty wallet in one transaction."""
-        # Hash before opening the transaction: bcrypt is slow and should not hold a DB connection.
         password_hash = self._hasher.hash(password)
         now = self._clock.now()
         with self._uow() as uow:
@@ -24,7 +21,6 @@ class AuthService:
         return user
 
     def login(self, username: str, password: str) -> tuple[str, int]:
-        """Return an access token and its lifetime in seconds."""
         with self._uow() as uow:
             user = uow.users.get_by_username(username.lower())
         password_ok = self._hasher.verify(password, user.password_hash if user else self._dummy_hash)

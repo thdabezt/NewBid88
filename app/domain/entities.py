@@ -12,8 +12,6 @@ class User:
 
 @dataclass
 class Wallet:
-    """held is the money locked by the user's leading bids; available is what they can still bid with."""
-
     user_id: int
     updated_at: datetime
     balance: int = 0
