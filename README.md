@@ -89,11 +89,14 @@ Nằm trong `/docs` của mã nguồn.
 
 ## Database
 
-![Database Schema](database_schema.png)
+![Database Schema](/docs/images/database_schema.png)
 
 ## Architecture
 
-![Architecture](architecture.png)
+![Architecture](/docs/images/architecture.png)
+
+## Kiểm thử tải
+[Locust Test](/docs/locust-test.md)
 
 ## Vấn đề hiện tại
 
